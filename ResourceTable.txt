@@ -1,0 +1,806 @@
+if (!("finalizeConstruction" in ViewPU.prototype)) {
+    Reflect.set(ViewPU.prototype, "finalizeConstruction", () => { });
+}
+interface my_Params {
+    userInfo?: UserInfo;
+    selectedStatsType?: 'week' | 'month' | 'year';
+    showHistory?: boolean;
+    currentTab?: TabType;
+}
+import router from "@ohos:router";
+// 与 Index 保持一致的类型
+type TabType = 'home' | 'record' | 'plan' | 'mine';
+interface UserInfo {
+    name: string;
+    school: string;
+    major: string;
+    studentId: string;
+    goals: Goal[];
+    stats: StatsType;
+    history: HistoryItem[];
+}
+interface Goal {
+    name: string;
+    deadline: string;
+    progress: number;
+    remaining: string;
+}
+interface Stats {
+    hours: number;
+    tasks: number;
+    focus: number;
+}
+interface StatsType {
+    week: Stats;
+    month: Stats;
+    year: Stats;
+}
+interface HistoryItem {
+    date: string;
+    weekday: string;
+    content: string;
+    hours: number;
+    tasks: number;
+    type: string;
+}
+const mockUserInfo: UserInfo = {
+    name: 'X同学',
+    school: 'XX大学',
+    major: '计算机科学与技术',
+    studentId: '2024001',
+    goals: [
+        { name: '考研 - 清华大学', deadline: '倒计时 260天', progress: 35, remaining: '65%' },
+        { name: '英语六级', deadline: '倒计时 30天', progress: 60, remaining: '40%' },
+        { name: '数学建模竞赛', deadline: '倒计时 45天', progress: 25, remaining: '75%' }
+    ],
+    stats: {
+        week: { hours: 28, tasks: 24, focus: 85 },
+        month: { hours: 112, tasks: 96, focus: 82 },
+        year: { hours: 586, tasks: 512, focus: 78 }
+    },
+    history: [
+        { date: '3/10', weekday: '周一', content: '完成高数第二章复习', hours: 3, tasks: 2, type: 'study' },
+        { date: '3/9', weekday: '周日', content: '英语六级真题模拟', hours: 4, tasks: 1, type: 'exam' },
+        { date: '3/8', weekday: '周六', content: '专业课数据结构复习', hours: 3, tasks: 2, type: 'study' },
+        { date: '3/7', weekday: '周五', content: '政治马原学习', hours: 2, tasks: 1, type: 'study' },
+        { date: '3/6', weekday: '周四', content: '高数练习题', hours: 3, tasks: 3, type: 'study' }
+    ]
+};
+export class my extends ViewPU {
+    constructor(parent, params, __localStorage, elmtId = -1, paramsLambda = undefined, extraInfo) {
+        super(parent, __localStorage, elmtId, extraInfo);
+        if (typeof paramsLambda === "function") {
+            this.paramsGenerator_ = paramsLambda;
+        }
+        this.__userInfo = new ObservedPropertyObjectPU(mockUserInfo, this, "userInfo");
+        this.__selectedStatsType = new ObservedPropertySimplePU('week', this, "selectedStatsType");
+        this.__showHistory = new ObservedPropertySimplePU(false, this, "showHistory");
+        this.__currentTab = new ObservedPropertySimplePU('mine', this, "currentTab");
+        this.setInitiallyProvidedValue(params);
+        this.finalizeConstruction();
+    }
+    setInitiallyProvidedValue(params: my_Params) {
+        if (params.userInfo !== undefined) {
+            this.userInfo = params.userInfo;
+        }
+        if (params.selectedStatsType !== undefined) {
+            this.selectedStatsType = params.selectedStatsType;
+        }
+        if (params.showHistory !== undefined) {
+            this.showHistory = params.showHistory;
+        }
+        if (params.currentTab !== undefined) {
+            this.currentTab = params.currentTab;
+        }
+    }
+    updateStateVars(params: my_Params) {
+    }
+    purgeVariableDependenciesOnElmtId(rmElmtId) {
+        this.__userInfo.purgeDependencyOnElmtId(rmElmtId);
+        this.__selectedStatsType.purgeDependencyOnElmtId(rmElmtId);
+        this.__showHistory.purgeDependencyOnElmtId(rmElmtId);
+        this.__currentTab.purgeDependencyOnElmtId(rmElmtId);
+    }
+    aboutToBeDeleted() {
+        this.__userInfo.aboutToBeDeleted();
+        this.__selectedStatsType.aboutToBeDeleted();
+        this.__showHistory.aboutToBeDeleted();
+        this.__currentTab.aboutToBeDeleted();
+        SubscriberManager.Get().delete(this.id__());
+        this.aboutToBeDeletedInternal();
+    }
+    private __userInfo: ObservedPropertyObjectPU<UserInfo>;
+    get userInfo() {
+        return this.__userInfo.get();
+    }
+    set userInfo(newValue: UserInfo) {
+        this.__userInfo.set(newValue);
+    }
+    private __selectedStatsType: ObservedPropertySimplePU<'week' | 'month' | 'year'>;
+    get selectedStatsType() {
+        return this.__selectedStatsType.get();
+    }
+    set selectedStatsType(newValue: 'week' | 'month' | 'year') {
+        this.__selectedStatsType.set(newValue);
+    }
+    private __showHistory: ObservedPropertySimplePU<boolean>;
+    get showHistory() {
+        return this.__showHistory.get();
+    }
+    set showHistory(newValue: boolean) {
+        this.__showHistory.set(newValue);
+    }
+    // 底部导航当前选中（与 Index 同步）
+    private __currentTab: ObservedPropertySimplePU<TabType>;
+    get currentTab() {
+        return this.__currentTab.get();
+    }
+    set currentTab(newValue: TabType) {
+        this.__currentTab.set(newValue);
+    }
+    initialRender() {
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create();
+            Column.debugLine("entry/src/main/ets/pages/my/my.ets(79:5)", "entry");
+            Column.width('100%');
+            Column.height('100%');
+            Column.expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM, SafeAreaEdge.TOP]);
+        }, Column);
+        // 标题栏
+        this.buildTitleBar.bind(this)();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Scroll.create();
+            Scroll.debugLine("entry/src/main/ets/pages/my/my.ets(83:7)", "entry");
+            Scroll.width('100%');
+            Scroll.layoutWeight(1);
+            Scroll.backgroundColor('#F8F9FC');
+        }, Scroll);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create();
+            Column.debugLine("entry/src/main/ets/pages/my/my.ets(84:9)", "entry");
+            Column.width('100%');
+            Column.padding(16);
+        }, Column);
+        this.buildUserInfoCard.bind(this)();
+        this.buildGoalSettingCard.bind(this)();
+        this.buildStatsCard.bind(this)();
+        this.buildHistorySection.bind(this)();
+        Column.pop();
+        Scroll.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            // ======================
+            // 底部导航（完全对标 Index）
+            // ======================
+            Row.create();
+            Row.debugLine("entry/src/main/ets/pages/my/my.ets(100:7)", "entry");
+            // ======================
+            // 底部导航（完全对标 Index）
+            // ======================
+            Row.width('100%');
+            // ======================
+            // 底部导航（完全对标 Index）
+            // ======================
+            Row.height(60);
+            // ======================
+            // 底部导航（完全对标 Index）
+            // ======================
+            Row.backgroundColor(Color.White);
+        }, Row);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            // 首页
+            Column.create({ space: 4 });
+            Column.debugLine("entry/src/main/ets/pages/my/my.ets(102:9)", "entry");
+            // 首页
+            Column.layoutWeight(1);
+            // 首页
+            Column.onClick(() => {
+                this.currentTab = 'home';
+                router.pushUrl({ url: 'pages/Index' });
+            });
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create("🏠");
+            Text.debugLine("entry/src/main/ets/pages/my/my.ets(103:11)", "entry");
+            Text.fontSize(24);
+            Text.fontColor(this.currentTab === 'home' ? '#2563EB' : '#6B7280');
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create("首页");
+            Text.debugLine("entry/src/main/ets/pages/my/my.ets(104:11)", "entry");
+            Text.fontColor(this.currentTab === 'home' ? '#2563EB' : '#6B7280');
+            Text.fontSize(14);
+        }, Text);
+        Text.pop();
+        // 首页
+        Column.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            // 记录
+            Column.create({ space: 4 });
+            Column.debugLine("entry/src/main/ets/pages/my/my.ets(115:9)", "entry");
+            // 记录
+            Column.layoutWeight(1);
+            // 记录
+            Column.onClick(() => {
+                this.currentTab = 'record';
+                router.pushUrl({ url: 'pages/RecordPage' });
+            });
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create("📝");
+            Text.debugLine("entry/src/main/ets/pages/my/my.ets(116:11)", "entry");
+            Text.fontSize(24);
+            Text.fontColor(this.currentTab === 'record' ? '#2563EB' : '#6B7280');
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create("记录");
+            Text.debugLine("entry/src/main/ets/pages/my/my.ets(117:11)", "entry");
+            Text.fontColor(this.currentTab === 'record' ? '#2563EB' : '#6B7280');
+            Text.fontSize(14);
+        }, Text);
+        Text.pop();
+        // 记录
+        Column.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            // 规划
+            Column.create({ space: 4 });
+            Column.debugLine("entry/src/main/ets/pages/my/my.ets(128:9)", "entry");
+            // 规划
+            Column.layoutWeight(1);
+            // 规划
+            Column.onClick(() => {
+                this.currentTab = 'plan';
+                router.pushUrl({ url: 'pages/PlannedPage' });
+            });
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create("📅");
+            Text.debugLine("entry/src/main/ets/pages/my/my.ets(129:11)", "entry");
+            Text.fontSize(24);
+            Text.fontColor(this.currentTab === 'plan' ? '#2563EB' : '#6B7280');
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create("规划");
+            Text.debugLine("entry/src/main/ets/pages/my/my.ets(130:11)", "entry");
+            Text.fontColor(this.currentTab === 'plan' ? '#2563EB' : '#6B7280');
+            Text.fontSize(14);
+        }, Text);
+        Text.pop();
+        // 规划
+        Column.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            // 我的
+            Column.create({ space: 4 });
+            Column.debugLine("entry/src/main/ets/pages/my/my.ets(141:9)", "entry");
+            // 我的
+            Column.layoutWeight(1);
+            // 我的
+            Column.onClick(() => {
+                this.currentTab = 'mine';
+            });
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create("👤");
+            Text.debugLine("entry/src/main/ets/pages/my/my.ets(142:11)", "entry");
+            Text.fontSize(24);
+            Text.fontColor(this.currentTab === 'mine' ? '#2563EB' : '#6B7280');
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create("我的");
+            Text.debugLine("entry/src/main/ets/pages/my/my.ets(143:11)", "entry");
+            Text.fontColor(this.currentTab === 'mine' ? '#2563EB' : '#6B7280');
+            Text.fontSize(14);
+        }, Text);
+        Text.pop();
+        // 我的
+        Column.pop();
+        // ======================
+        // 底部导航（完全对标 Index）
+        // ======================
+        Row.pop();
+        Column.pop();
+    }
+    buildTitleBar(parent = null) {
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Row.create();
+            Row.debugLine("entry/src/main/ets/pages/my/my.ets(163:5)", "entry");
+            Row.width('100%');
+            Row.padding({ left: 16, right: 16, top: 12, bottom: 12 });
+            Row.backgroundColor(Color.White);
+        }, Row);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create('个人中心');
+            Text.debugLine("entry/src/main/ets/pages/my/my.ets(164:7)", "entry");
+            Text.fontSize(24);
+            Text.fontWeight(FontWeight.Bold);
+            Text.fontColor('#1A1A1A');
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Blank.create();
+            Blank.debugLine("entry/src/main/ets/pages/my/my.ets(169:7)", "entry");
+        }, Blank);
+        Blank.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Image.create({ "id": 16777239, "type": 20000, params: [], "bundleName": "com.example.educationapplication", "moduleName": "entry" });
+            Image.debugLine("entry/src/main/ets/pages/my/my.ets(170:7)", "entry");
+            Image.width(24);
+            Image.height(24);
+        }, Image);
+        Row.pop();
+    }
+    buildUserInfoCard(parent = null) {
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Row.create();
+            Row.debugLine("entry/src/main/ets/pages/my/my.ets(181:5)", "entry");
+            Row.width('100%');
+            Row.padding(16);
+            Row.backgroundColor(Color.White);
+            Row.borderRadius(12);
+            Row.margin({ bottom: 16 });
+        }, Row);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Image.create({ "id": 16777243, "type": 20000, params: [], "bundleName": "com.example.educationapplication", "moduleName": "entry" });
+            Image.debugLine("entry/src/main/ets/pages/my/my.ets(182:7)", "entry");
+            Image.width(64);
+            Image.height(64);
+            Image.margin({ right: 16 });
+            Image.borderRadius(32);
+        }, Image);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create();
+            Column.debugLine("entry/src/main/ets/pages/my/my.ets(188:7)", "entry");
+            Column.alignItems(HorizontalAlign.Start);
+            Column.layoutWeight(1);
+            Column.margin({ left: 10 });
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create(this.userInfo.name);
+            Text.debugLine("entry/src/main/ets/pages/my/my.ets(189:9)", "entry");
+            Text.fontSize(20);
+            Text.fontWeight(FontWeight.Medium);
+            Text.fontColor('#1A1A1A');
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create(this.userInfo.school);
+            Text.debugLine("entry/src/main/ets/pages/my/my.ets(194:9)", "entry");
+            Text.fontSize(14);
+            Text.fontColor('#666666');
+            Text.margin({ top: 4 });
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create(this.userInfo.major);
+            Text.debugLine("entry/src/main/ets/pages/my/my.ets(199:9)", "entry");
+            Text.fontSize(14);
+            Text.fontColor('#666666');
+            Text.margin({ top: 4 });
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Row.create();
+            Row.debugLine("entry/src/main/ets/pages/my/my.ets(204:9)", "entry");
+            Row.margin({ top: 4 });
+        }, Row);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create('学号: ' + this.userInfo.studentId);
+            Text.debugLine("entry/src/main/ets/pages/my/my.ets(205:11)", "entry");
+            Text.fontSize(12);
+            Text.fontColor('#999999');
+        }, Text);
+        Text.pop();
+        Row.pop();
+        Column.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Button.createWithLabel('编辑');
+            Button.debugLine("entry/src/main/ets/pages/my/my.ets(215:7)", "entry");
+            Button.fontSize(14);
+            Button.fontColor('#4A6FFF');
+            Button.backgroundColor('#EFF3FF');
+            Button.borderRadius(16);
+            Button.height(32);
+            Button.width(60);
+        }, Button);
+        Button.pop();
+        Row.pop();
+    }
+    buildGoalSettingCard(parent = null) {
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create();
+            Column.debugLine("entry/src/main/ets/pages/my/my.ets(232:5)", "entry");
+            Column.width('100%');
+            Column.padding(16);
+            Column.backgroundColor(Color.White);
+            Column.borderRadius(12);
+            Column.margin({ bottom: 16 });
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Row.create();
+            Row.debugLine("entry/src/main/ets/pages/my/my.ets(233:7)", "entry");
+            Row.width('100%');
+            Row.margin({ bottom: 16 });
+        }, Row);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create('学习目标');
+            Text.debugLine("entry/src/main/ets/pages/my/my.ets(234:9)", "entry");
+            Text.fontSize(18);
+            Text.fontWeight(FontWeight.Medium);
+            Text.fontColor('#1A1A1A');
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Blank.create();
+            Blank.debugLine("entry/src/main/ets/pages/my/my.ets(238:9)", "entry");
+        }, Blank);
+        Blank.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create('设置');
+            Text.debugLine("entry/src/main/ets/pages/my/my.ets(239:9)", "entry");
+            Text.fontSize(14);
+            Text.fontColor('#4A6FFF');
+        }, Text);
+        Text.pop();
+        Row.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create();
+            Column.debugLine("entry/src/main/ets/pages/my/my.ets(246:7)", "entry");
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            ForEach.create();
+            const forEachItemGenFunction = _item => {
+                const goal = _item;
+                this.buildGoalItem.bind(this)(goal);
+            };
+            this.forEachUpdateFunction(elmtId, this.userInfo.goals, forEachItemGenFunction);
+        }, ForEach);
+        ForEach.pop();
+        Column.pop();
+        Column.pop();
+    }
+    buildGoalItem(goal: Goal, parent = null) {
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create();
+            Column.debugLine("entry/src/main/ets/pages/my/my.ets(261:5)", "entry");
+            Column.width('100%');
+            Column.padding({ top: 8, bottom: 8 });
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Row.create();
+            Row.debugLine("entry/src/main/ets/pages/my/my.ets(262:7)", "entry");
+            Row.width('100%');
+            Row.margin({ bottom: 8 });
+        }, Row);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create(goal.name);
+            Text.debugLine("entry/src/main/ets/pages/my/my.ets(263:9)", "entry");
+            Text.fontSize(16);
+            Text.fontColor('#1A1A1A');
+            Text.fontWeight(FontWeight.Medium);
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Blank.create();
+            Blank.debugLine("entry/src/main/ets/pages/my/my.ets(267:9)", "entry");
+        }, Blank);
+        Blank.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create(goal.deadline);
+            Text.debugLine("entry/src/main/ets/pages/my/my.ets(268:9)", "entry");
+            Text.fontSize(14);
+            Text.fontColor('#FF9500');
+            Text.backgroundColor('#FFF2E6');
+            Text.padding({ left: 8, right: 8, top: 2, bottom: 2 });
+            Text.borderRadius(10);
+        }, Text);
+        Text.pop();
+        Row.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Progress.create({
+                value: goal.progress,
+                total: 100,
+                type: ProgressType.Linear
+            });
+            Progress.debugLine("entry/src/main/ets/pages/my/my.ets(278:7)", "entry");
+            Progress.width('100%');
+            Progress.height(6);
+            Progress.color('#4A6FFF');
+            Progress.backgroundColor('#EFF3FF');
+        }, Progress);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Row.create();
+            Row.debugLine("entry/src/main/ets/pages/my/my.ets(288:7)", "entry");
+            Row.width('100%');
+            Row.margin({ top: 4 });
+        }, Row);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create('已完成: ' + goal.progress + '%');
+            Text.debugLine("entry/src/main/ets/pages/my/my.ets(289:9)", "entry");
+            Text.fontSize(12);
+            Text.fontColor('#666666');
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Blank.create();
+            Blank.debugLine("entry/src/main/ets/pages/my/my.ets(292:9)", "entry");
+        }, Blank);
+        Blank.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create('剩余: ' + goal.remaining);
+            Text.debugLine("entry/src/main/ets/pages/my/my.ets(293:9)", "entry");
+            Text.fontSize(12);
+            Text.fontColor('#999999');
+        }, Text);
+        Text.pop();
+        Row.pop();
+        Column.pop();
+    }
+    buildStatsCard(parent = null) {
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create();
+            Column.debugLine("entry/src/main/ets/pages/my/my.ets(306:5)", "entry");
+            Column.width('100%');
+            Column.padding(16);
+            Column.backgroundColor(Color.White);
+            Column.borderRadius(12);
+            Column.margin({ bottom: 16 });
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Row.create();
+            Row.debugLine("entry/src/main/ets/pages/my/my.ets(307:7)", "entry");
+            Row.width('100%');
+            Row.margin({ bottom: 16 });
+        }, Row);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create('学习统计');
+            Text.debugLine("entry/src/main/ets/pages/my/my.ets(308:9)", "entry");
+            Text.fontSize(18);
+            Text.fontWeight(FontWeight.Medium);
+            Text.fontColor('#1A1A1A');
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Blank.create();
+            Blank.debugLine("entry/src/main/ets/pages/my/my.ets(312:9)", "entry");
+        }, Blank);
+        Blank.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Row.create();
+            Row.debugLine("entry/src/main/ets/pages/my/my.ets(313:9)", "entry");
+            Row.backgroundColor('#F5F5F5');
+            Row.borderRadius(20);
+            Row.padding(2);
+        }, Row);
+        this.buildStatsTab.bind(this)('周', 'week');
+        this.buildStatsTab.bind(this)('月', 'month');
+        this.buildStatsTab.bind(this)('年', 'year');
+        Row.pop();
+        Row.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Row.create();
+            Row.debugLine("entry/src/main/ets/pages/my/my.ets(325:7)", "entry");
+            Row.padding(16);
+            Row.backgroundColor('#F8F9FC');
+            Row.borderRadius(12);
+        }, Row);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create();
+            Column.debugLine("entry/src/main/ets/pages/my/my.ets(326:9)", "entry");
+            Column.layoutWeight(1);
+            Column.alignItems(HorizontalAlign.Center);
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create('学习时长');
+            Text.debugLine("entry/src/main/ets/pages/my/my.ets(327:11)", "entry");
+            Text.fontSize(14);
+            Text.fontColor('#666666');
+        }, Text);
+        Text.pop();
+        Column.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create();
+            Column.debugLine("entry/src/main/ets/pages/my/my.ets(341:9)", "entry");
+            Column.layoutWeight(1);
+            Column.alignItems(HorizontalAlign.Center);
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create('完成任务');
+            Text.debugLine("entry/src/main/ets/pages/my/my.ets(342:11)", "entry");
+            Text.fontSize(14);
+            Text.fontColor('#666666');
+        }, Text);
+        Text.pop();
+        Column.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create();
+            Column.debugLine("entry/src/main/ets/pages/my/my.ets(356:9)", "entry");
+            Column.layoutWeight(1);
+            Column.alignItems(HorizontalAlign.Center);
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create('专注度');
+            Text.debugLine("entry/src/main/ets/pages/my/my.ets(357:11)", "entry");
+            Text.fontSize(14);
+            Text.fontColor('#666666');
+        }, Text);
+        Text.pop();
+        Column.pop();
+        Row.pop();
+        Column.pop();
+    }
+    buildStatsTab(text: string, type: 'week' | 'month' | 'year', parent = null) {
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create(text);
+            Text.debugLine("entry/src/main/ets/pages/my/my.ets(384:5)", "entry");
+            Text.fontSize(14);
+            Text.fontColor(this.selectedStatsType === type ? '#FFFFFF' : '#666666');
+            Text.backgroundColor(this.selectedStatsType === type ? '#4A6FFF' : 'transparent');
+            Text.borderRadius(18);
+            Text.padding({ left: 12, right: 12, top: 4, bottom: 4 });
+            Text.onClick(() => {
+                this.selectedStatsType = type;
+            });
+        }, Text);
+        Text.pop();
+    }
+    buildHistorySection(parent = null) {
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create();
+            Column.debugLine("entry/src/main/ets/pages/my/my.ets(397:5)", "entry");
+            Column.width('100%');
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Row.create();
+            Row.debugLine("entry/src/main/ets/pages/my/my.ets(398:7)", "entry");
+            Row.width('100%');
+            Row.margin({ bottom: 12 });
+        }, Row);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create('历史记录');
+            Text.debugLine("entry/src/main/ets/pages/my/my.ets(399:9)", "entry");
+            Text.fontSize(18);
+            Text.fontWeight(FontWeight.Medium);
+            Text.fontColor('#1A1A1A');
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Blank.create();
+            Blank.debugLine("entry/src/main/ets/pages/my/my.ets(403:9)", "entry");
+        }, Blank);
+        Blank.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Button.createWithLabel(this.showHistory ? '收起' : '展开');
+            Button.debugLine("entry/src/main/ets/pages/my/my.ets(404:9)", "entry");
+            Button.fontSize(14);
+            Button.fontColor('#4A6FFF');
+            Button.backgroundColor('transparent');
+            Button.onClick(() => {
+                this.showHistory = !this.showHistory;
+            });
+        }, Button);
+        Button.pop();
+        Row.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            If.create();
+            if (this.showHistory) {
+                this.ifElseBranchUpdateFunction(0, () => {
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Column.create();
+                        Column.debugLine("entry/src/main/ets/pages/my/my.ets(416:9)", "entry");
+                        Column.width('100%');
+                        Column.backgroundColor(Color.White);
+                        Column.borderRadius(12);
+                        Column.padding(12);
+                    }, Column);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        ForEach.create();
+                        const forEachItemGenFunction = _item => {
+                            const item = _item;
+                            this.buildHistoryItem.bind(this)(item);
+                        };
+                        this.forEachUpdateFunction(elmtId, this.userInfo.history, forEachItemGenFunction);
+                    }, ForEach);
+                    ForEach.pop();
+                    Column.pop();
+                });
+            }
+            else {
+                this.ifElseBranchUpdateFunction(1, () => {
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Column.create();
+                        Column.debugLine("entry/src/main/ets/pages/my/my.ets(426:9)", "entry");
+                        Column.width('100%');
+                        Column.backgroundColor(Color.White);
+                        Column.borderRadius(12);
+                        Column.padding(12);
+                    }, Column);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        ForEach.create();
+                        const forEachItemGenFunction = _item => {
+                            const item = _item;
+                            this.buildHistoryItem.bind(this)(item);
+                        };
+                        this.forEachUpdateFunction(elmtId, this.userInfo.history.slice(0, 3), forEachItemGenFunction);
+                    }, ForEach);
+                    ForEach.pop();
+                    Column.pop();
+                });
+            }
+        }, If);
+        If.pop();
+        Column.pop();
+    }
+    buildHistoryItem(item: HistoryItem, parent = null) {
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Row.create();
+            Row.debugLine("entry/src/main/ets/pages/my/my.ets(442:5)", "entry");
+            Row.width('100%');
+            Row.padding({ top: 8, bottom: 8 });
+            Row.borderRadius(8);
+        }, Row);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create();
+            Column.debugLine("entry/src/main/ets/pages/my/my.ets(443:7)", "entry");
+            Column.width(60);
+            Column.alignItems(HorizontalAlign.Center);
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create(item.date);
+            Text.debugLine("entry/src/main/ets/pages/my/my.ets(444:9)", "entry");
+            Text.fontSize(16);
+            Text.fontWeight(FontWeight.Medium);
+            Text.fontColor('#1A1A1A');
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create(item.weekday);
+            Text.debugLine("entry/src/main/ets/pages/my/my.ets(448:9)", "entry");
+            Text.fontSize(12);
+            Text.fontColor('#999999');
+        }, Text);
+        Text.pop();
+        Column.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create();
+            Column.debugLine("entry/src/main/ets/pages/my/my.ets(455:7)", "entry");
+            Column.layoutWeight(1);
+            Column.alignItems(HorizontalAlign.Start);
+            Column.padding({ left: 12 });
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create(item.content);
+            Text.debugLine("entry/src/main/ets/pages/my/my.ets(456:9)", "entry");
+            Text.fontSize(14);
+            Text.fontColor('#1A1A1A');
+            Text.maxLines(1);
+            Text.textOverflow({ overflow: TextOverflow.Ellipsis });
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create('学习时长: ' + item.hours + 'h  |  完成任务: ' + item.tasks);
+            Text.debugLine("entry/src/main/ets/pages/my/my.ets(461:9)", "entry");
+            Text.fontSize(12);
+            Text.fontColor('#999999');
+            Text.margin({ top: 2 });
+        }, Text);
+        Text.pop();
+        Column.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create(item.type === 'study' ? '📚' : '📝');
+            Text.debugLine("entry/src/main/ets/pages/my/my.ets(470:7)", "entry");
+            Text.fontSize(20);
+        }, Text);
+        Text.pop();
+        Row.pop();
+    }
+    rerender() {
+        this.updateDirtyElements();
+    }
+    static getEntryName(): string {
+        return "my";
+    }
+}
+registerNamedRoute(() => new my(undefined, {}), "", { bundleName: "com.example.educationapplication", moduleName: "entry", pagePath: "pages/my/my", pageFullPath: "entry/src/main/ets/pages/my/my", integratedHsp: "false", moduleType: "followWithHap" });

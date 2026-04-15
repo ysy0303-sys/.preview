@@ -1,0 +1,1768 @@
+if (!("finalizeConstruction" in ViewPU.prototype)) {
+    Reflect.set(ViewPU.prototype, "finalizeConstruction", () => { });
+}
+interface PlanPage_Params {
+    currentTabIndex?: number;
+    planData?: PlanData;
+    currentTimingTaskId?: string;
+    showRatingDialog?: boolean;
+    currentRatingTask?: TaskItem | null;
+    focusValue?: number;
+    mentalValue?: number;
+    showProgressDialog?: boolean;
+    progressData?: StatItem[];
+    showChart?: boolean;
+    showResultDialog?: boolean;
+    resultMessage?: string;
+    isDataLoaded?: boolean;
+    planTabs?: PlanTabItem[];
+    timerInterval?: number;
+    baseUrl?: string;
+    planId?: string;
+}
+import http from "@ohos:net.http";
+import promptAction from "@ohos:promptAction";
+import router from "@ohos:router";
+import { globalState } from "@normalized:N&&&entry/src/main/ets/entryability/EntryAbility&";
+import dataPreferences from "@ohos:data.preferences";
+type TabType = 'home' | 'plan' | 'recommend' | 'mine';
+interface DateInfo {
+    year: string;
+    month: string;
+    day: string;
+}
+interface StatItem {
+    name: string;
+    value: number;
+}
+interface GoalTask {
+    title: string;
+    gpa: number;
+}
+interface GoalDailyProgress {
+    goal_id: number;
+    goal_content: string;
+    tasks: GoalTask[];
+}
+interface TimingResponse {
+    suggestion?: string;
+    plan_id?: string;
+}
+interface TaskItem {
+    plan_id: string | number;
+    title: string;
+    description: string;
+    task_date: string;
+    priority: '高' | '中' | '低' | '';
+    gpa: string;
+    status: string;
+    isTiming?: boolean;
+    elapsedTime?: number;
+    totalSeconds?: number;
+}
+interface MonthTaskData {
+    count: number;
+    completed: number;
+    tasks: TaskItem[];
+}
+interface PlanData {
+    dailyTasks: TaskItem[];
+    monthlyTasks: Record<string, TaskItem[]>;
+    yearlyTasks: Record<string, MonthTaskData>;
+}
+interface PlanTabItem {
+    name: string;
+    type: 'daily' | 'monthly' | 'yearly';
+}
+interface RouteParams {
+    targetId?: string;
+}
+class PlanPage extends ViewPU {
+    constructor(parent, params, __localStorage, elmtId = -1, paramsLambda = undefined, extraInfo) {
+        super(parent, __localStorage, elmtId, extraInfo);
+        if (typeof paramsLambda === "function") {
+            this.paramsGenerator_ = paramsLambda;
+        }
+        this.__currentTabIndex = new ObservedPropertySimplePU(0, this, "currentTabIndex");
+        this.__planData = new ObservedPropertyObjectPU({
+            dailyTasks: [],
+            monthlyTasks: {},
+            yearlyTasks: {}
+        }, this, "planData");
+        this.__currentTimingTaskId = new ObservedPropertySimplePU('', this, "currentTimingTaskId");
+        this.__showRatingDialog = new ObservedPropertySimplePU(false, this, "showRatingDialog");
+        this.__currentRatingTask = new ObservedPropertyObjectPU(null, this, "currentRatingTask");
+        this.__focusValue = new ObservedPropertySimplePU(50, this, "focusValue");
+        this.__mentalValue = new ObservedPropertySimplePU(50, this, "mentalValue");
+        this.__showProgressDialog = new ObservedPropertySimplePU(false, this, "showProgressDialog");
+        this.__progressData = new ObservedPropertyObjectPU([], this, "progressData");
+        this.__showChart = new ObservedPropertySimplePU(false, this, "showChart");
+        this.__showResultDialog = new ObservedPropertySimplePU(false, this, "showResultDialog");
+        this.__resultMessage = new ObservedPropertySimplePU("", this, "resultMessage");
+        this.__isDataLoaded = new ObservedPropertySimplePU(false, this, "isDataLoaded");
+        this.planTabs = [
+            { name: '日计划', type: 'daily' },
+            { name: '月计划', type: 'monthly' },
+            { name: '年计划', type: 'yearly' }
+        ];
+        this.timerInterval = -1;
+        this.baseUrl = 'https://designcompetition-production.up.railway.app/api';
+        this.planId = '';
+        this.setInitiallyProvidedValue(params);
+        this.finalizeConstruction();
+    }
+    setInitiallyProvidedValue(params: PlanPage_Params) {
+        if (params.currentTabIndex !== undefined) {
+            this.currentTabIndex = params.currentTabIndex;
+        }
+        if (params.planData !== undefined) {
+            this.planData = params.planData;
+        }
+        if (params.currentTimingTaskId !== undefined) {
+            this.currentTimingTaskId = params.currentTimingTaskId;
+        }
+        if (params.showRatingDialog !== undefined) {
+            this.showRatingDialog = params.showRatingDialog;
+        }
+        if (params.currentRatingTask !== undefined) {
+            this.currentRatingTask = params.currentRatingTask;
+        }
+        if (params.focusValue !== undefined) {
+            this.focusValue = params.focusValue;
+        }
+        if (params.mentalValue !== undefined) {
+            this.mentalValue = params.mentalValue;
+        }
+        if (params.showProgressDialog !== undefined) {
+            this.showProgressDialog = params.showProgressDialog;
+        }
+        if (params.progressData !== undefined) {
+            this.progressData = params.progressData;
+        }
+        if (params.showChart !== undefined) {
+            this.showChart = params.showChart;
+        }
+        if (params.showResultDialog !== undefined) {
+            this.showResultDialog = params.showResultDialog;
+        }
+        if (params.resultMessage !== undefined) {
+            this.resultMessage = params.resultMessage;
+        }
+        if (params.isDataLoaded !== undefined) {
+            this.isDataLoaded = params.isDataLoaded;
+        }
+        if (params.planTabs !== undefined) {
+            this.planTabs = params.planTabs;
+        }
+        if (params.timerInterval !== undefined) {
+            this.timerInterval = params.timerInterval;
+        }
+        if (params.baseUrl !== undefined) {
+            this.baseUrl = params.baseUrl;
+        }
+        if (params.planId !== undefined) {
+            this.planId = params.planId;
+        }
+    }
+    updateStateVars(params: PlanPage_Params) {
+    }
+    purgeVariableDependenciesOnElmtId(rmElmtId) {
+        this.__currentTabIndex.purgeDependencyOnElmtId(rmElmtId);
+        this.__planData.purgeDependencyOnElmtId(rmElmtId);
+        this.__currentTimingTaskId.purgeDependencyOnElmtId(rmElmtId);
+        this.__showRatingDialog.purgeDependencyOnElmtId(rmElmtId);
+        this.__currentRatingTask.purgeDependencyOnElmtId(rmElmtId);
+        this.__focusValue.purgeDependencyOnElmtId(rmElmtId);
+        this.__mentalValue.purgeDependencyOnElmtId(rmElmtId);
+        this.__showProgressDialog.purgeDependencyOnElmtId(rmElmtId);
+        this.__progressData.purgeDependencyOnElmtId(rmElmtId);
+        this.__showChart.purgeDependencyOnElmtId(rmElmtId);
+        this.__showResultDialog.purgeDependencyOnElmtId(rmElmtId);
+        this.__resultMessage.purgeDependencyOnElmtId(rmElmtId);
+        this.__isDataLoaded.purgeDependencyOnElmtId(rmElmtId);
+    }
+    aboutToBeDeleted() {
+        this.__currentTabIndex.aboutToBeDeleted();
+        this.__planData.aboutToBeDeleted();
+        this.__currentTimingTaskId.aboutToBeDeleted();
+        this.__showRatingDialog.aboutToBeDeleted();
+        this.__currentRatingTask.aboutToBeDeleted();
+        this.__focusValue.aboutToBeDeleted();
+        this.__mentalValue.aboutToBeDeleted();
+        this.__showProgressDialog.aboutToBeDeleted();
+        this.__progressData.aboutToBeDeleted();
+        this.__showChart.aboutToBeDeleted();
+        this.__showResultDialog.aboutToBeDeleted();
+        this.__resultMessage.aboutToBeDeleted();
+        this.__isDataLoaded.aboutToBeDeleted();
+        SubscriberManager.Get().delete(this.id__());
+        this.aboutToBeDeletedInternal();
+    }
+    private __currentTabIndex: ObservedPropertySimplePU<number>;
+    get currentTabIndex() {
+        return this.__currentTabIndex.get();
+    }
+    set currentTabIndex(newValue: number) {
+        this.__currentTabIndex.set(newValue);
+    }
+    private __planData: ObservedPropertyObjectPU<PlanData>;
+    get planData() {
+        return this.__planData.get();
+    }
+    set planData(newValue: PlanData) {
+        this.__planData.set(newValue);
+    }
+    private __currentTimingTaskId: ObservedPropertySimplePU<string>;
+    get currentTimingTaskId() {
+        return this.__currentTimingTaskId.get();
+    }
+    set currentTimingTaskId(newValue: string) {
+        this.__currentTimingTaskId.set(newValue);
+    }
+    private __showRatingDialog: ObservedPropertySimplePU<boolean>;
+    get showRatingDialog() {
+        return this.__showRatingDialog.get();
+    }
+    set showRatingDialog(newValue: boolean) {
+        this.__showRatingDialog.set(newValue);
+    }
+    private __currentRatingTask: ObservedPropertyObjectPU<TaskItem | null>;
+    get currentRatingTask() {
+        return this.__currentRatingTask.get();
+    }
+    set currentRatingTask(newValue: TaskItem | null) {
+        this.__currentRatingTask.set(newValue);
+    }
+    private __focusValue: ObservedPropertySimplePU<number>;
+    get focusValue() {
+        return this.__focusValue.get();
+    }
+    set focusValue(newValue: number) {
+        this.__focusValue.set(newValue);
+    }
+    private __mentalValue: ObservedPropertySimplePU<number>;
+    get mentalValue() {
+        return this.__mentalValue.get();
+    }
+    set mentalValue(newValue: number) {
+        this.__mentalValue.set(newValue);
+    }
+    private __showProgressDialog: ObservedPropertySimplePU<boolean>;
+    get showProgressDialog() {
+        return this.__showProgressDialog.get();
+    }
+    set showProgressDialog(newValue: boolean) {
+        this.__showProgressDialog.set(newValue);
+    }
+    private __progressData: ObservedPropertyObjectPU<StatItem[]>;
+    get progressData() {
+        return this.__progressData.get();
+    }
+    set progressData(newValue: StatItem[]) {
+        this.__progressData.set(newValue);
+    }
+    private __showChart: ObservedPropertySimplePU<boolean>;
+    get showChart() {
+        return this.__showChart.get();
+    }
+    set showChart(newValue: boolean) {
+        this.__showChart.set(newValue);
+    }
+    private __showResultDialog: ObservedPropertySimplePU<boolean>;
+    get showResultDialog() {
+        return this.__showResultDialog.get();
+    }
+    set showResultDialog(newValue: boolean) {
+        this.__showResultDialog.set(newValue);
+    }
+    private __resultMessage: ObservedPropertySimplePU<string>;
+    get resultMessage() {
+        return this.__resultMessage.get();
+    }
+    set resultMessage(newValue: string) {
+        this.__resultMessage.set(newValue);
+    }
+    private __isDataLoaded: ObservedPropertySimplePU<boolean>;
+    get isDataLoaded() {
+        return this.__isDataLoaded.get();
+    }
+    set isDataLoaded(newValue: boolean) {
+        this.__isDataLoaded.set(newValue);
+    }
+    private planTabs: PlanTabItem[];
+    private timerInterval: number;
+    private baseUrl: string;
+    private planId: string;
+    async aboutToAppear() {
+        let params = router.getParams() as RouteParams;
+        if (!params?.targetId) {
+            console.error("planId 为空");
+            return;
+        }
+        this.planId = params.targetId;
+        if (this.planId && !this.isDataLoaded) {
+            await this.loadAllPlanData();
+            this.isDataLoaded = true;
+        }
+        else if (this.planId && this.isDataLoaded) {
+            await this.restoreCache();
+        }
+    }
+    aboutToDisappear() {
+        if (this.timerInterval !== -1) {
+            clearInterval(this.timerInterval);
+        }
+    }
+    async loadAllPlanData() {
+        if (!this.planId)
+            return;
+        await this.loadDailyPlan();
+    }
+    async submitTaskTimingAndGetSuggestion(task: TaskItem, focus: number, mental: number, seconds: number): Promise<string> {
+        return new Promise((resolve) => {
+            const token = globalState.token || '';
+            const httpRequest = http.createHttp();
+            const body = JSON.stringify({
+                duration: seconds,
+                focus_score: focus,
+                brain_power_score: mental
+            });
+            const url = `${this.baseUrl}/task/timing/${task.plan_id}`;
+            httpRequest.request(url, {
+                method: http.RequestMethod.POST,
+                header: {
+                    'Content-Type': 'application/json',
+                    'Authorization': token
+                },
+                extraData: body
+            }, (err, res) => {
+                if (err || !res) {
+                    resolve("提交失败");
+                    httpRequest.destroy();
+                    return;
+                }
+                try {
+                    const data = JSON.parse(res.result as string) as TimingResponse;
+                    resolve(data.suggestion || "提交成功");
+                }
+                catch {
+                    resolve("提交成功");
+                }
+                httpRequest.destroy();
+            });
+        });
+    }
+    async loadDailyPlan() {
+        if (!this.planId)
+            return;
+        try {
+            let httpRequest = http.createHttp();
+            let url = `${this.baseUrl}/goals/${this.planId}/tasks`;
+            const token = globalState.token || '';
+            let res = await httpRequest.request(url, {
+                method: http.RequestMethod.GET,
+                header: {
+                    'Authorization': 'Bearer ' + token
+                }
+            });
+            let tasks = JSON.parse(res.result as string) as TaskItem[];
+            let dailyTasks: TaskItem[] = [];
+            let monthlyTasks: Record<string, TaskItem[]> = {};
+            let yearlyTasks: Record<string, MonthTaskData> = {};
+            for (let task of tasks) {
+                const dateInfo: DateInfo = this.parseDate(task.task_date);
+                const day: string = dateInfo.day;
+                const month: string = dateInfo.month;
+                dailyTasks.push(task);
+                if (!monthlyTasks[day])
+                    monthlyTasks[day] = [];
+                monthlyTasks[day].push(task);
+                if (!yearlyTasks[month]) {
+                    yearlyTasks[month] = { count: 0, completed: 0, tasks: [] };
+                }
+                yearlyTasks[month].tasks.push(task);
+                yearlyTasks[month].count++;
+                if (task.status === '已完成')
+                    yearlyTasks[month].completed++;
+            }
+            this.planData = { dailyTasks, monthlyTasks, yearlyTasks };
+            await this.saveCache();
+            httpRequest.destroy();
+        }
+        catch (err) {
+            console.error('加载失败', err);
+            await this.restoreCache();
+        }
+    }
+    async saveCache() {
+        try {
+            const ctx = globalState.context as Context;
+            if (!ctx)
+                return;
+            const pref = await dataPreferences.getPreferences(ctx, "plan_cache");
+            await pref.put(`data_${this.planId}`, JSON.stringify(this.planData));
+            await pref.flush();
+        }
+        catch (e) {
+            console.error("saveCache err", e);
+        }
+    }
+    async restoreCache() {
+        try {
+            const ctx = globalState.context as Context;
+            if (!ctx)
+                return;
+            const pref = await dataPreferences.getPreferences(ctx, "plan_cache");
+            const str = await pref.get(`data_${this.planId}`, "");
+            if (str && typeof str === "string") {
+                this.planData = JSON.parse(str);
+            }
+        }
+        catch (e) {
+            console.error("restoreCache err", e);
+        }
+    }
+    submitTaskTiming(task: TaskItem, focus: number, mental: number, seconds: number) {
+        try {
+            if (!this.planId || !task) {
+                console.error("=== 提交失败：planId 或 task 为空 ===");
+                return;
+            }
+            const token = globalState.token || '';
+            const httpRequest = http.createHttp();
+            const body = JSON.stringify({
+                plan_id: task.plan_id,
+                duration: seconds,
+                focus_score: focus,
+                brain_power_score: mental
+            });
+            const finalUrl = `${this.baseUrl}/task/timing/${task.plan_id}`;
+            httpRequest.request(finalUrl, {
+                method: http.RequestMethod.POST,
+                header: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + token
+                },
+                extraData: body
+            }, (err, res) => {
+                httpRequest.destroy();
+            });
+        }
+        catch (e) {
+            console.error("=== 捕获异常 ===", e);
+        }
+    }
+    async syncTaskStatus(task: TaskItem, completed: boolean) {
+        try {
+            if (!this.planId || !task)
+                return;
+            const date = this.parseDate(task.task_date);
+            const body = JSON.stringify({
+                plan_id: task.plan_id,
+                year: parseInt(date.year),
+                month: parseInt(date.month),
+                day: parseInt(date.day),
+                task_title: task.title,
+                completed: completed
+            });
+            const token = globalState.token || '';
+            const httpRequest = http.createHttp();
+            await httpRequest.request(`${this.baseUrl}/task/completion`, {
+                method: http.RequestMethod.POST,
+                header: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + token
+                },
+                extraData: body
+            });
+            httpRequest.destroy();
+            await this.loadAllPlanData();
+            await this.saveCache();
+        }
+        catch (e) {
+            console.error("同步失败:", e);
+        }
+    }
+    initialRender() {
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Stack.create();
+            Stack.debugLine("entry/src/main/ets/pages/PlanPage.ets(319:5)", "entry");
+            Stack.width('100%');
+            Stack.height('100%');
+        }, Stack);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create();
+            Column.debugLine("entry/src/main/ets/pages/PlanPage.ets(320:7)", "entry");
+            Column.expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM]);
+            Column.backgroundImage({ "id": 16777247, "type": 20000, params: [], "bundleName": "com.example.educationapplication", "moduleName": "entry" });
+            Column.backgroundImageSize(ImageSize.Cover);
+            Column.width('100%');
+            Column.height('100%');
+        }, Column);
+        this.buildTitleBar.bind(this)();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Scroll.create();
+            Scroll.debugLine("entry/src/main/ets/pages/PlanPage.ets(322:9)", "entry");
+            Scroll.width('100%');
+            Scroll.layoutWeight(1);
+        }, Scroll);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create();
+            Column.debugLine("entry/src/main/ets/pages/PlanPage.ets(323:11)", "entry");
+            Column.width('100%');
+            Column.padding(16);
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Tabs.create({ index: this.currentTabIndex });
+            Tabs.debugLine("entry/src/main/ets/pages/PlanPage.ets(324:13)", "entry");
+            Tabs.width('100%');
+            Tabs.backgroundColor('#80FFFFFF');
+            Tabs.onChange((index: number) => {
+                this.currentTabIndex = index;
+            });
+            Tabs.barHeight(56);
+            Tabs.barMode(BarMode.Fixed);
+            Tabs.scrollable(true);
+            Tabs.animationDuration(300);
+        }, Tabs);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            ForEach.create();
+            const forEachItemGenFunction = (_item, index: number) => {
+                const tab = _item;
+                this.observeComponentCreation2((elmtId, isInitialRender) => {
+                    TabContent.create(() => {
+                        this.observeComponentCreation2((elmtId, isInitialRender) => {
+                            Column.create();
+                            Column.debugLine("entry/src/main/ets/pages/PlanPage.ets(327:19)", "entry");
+                            Column.width('100%');
+                        }, Column);
+                        this.observeComponentCreation2((elmtId, isInitialRender) => {
+                            If.create();
+                            if (tab.type === 'daily') {
+                                this.ifElseBranchUpdateFunction(0, () => {
+                                    this.buildDailyPlanView.bind(this)();
+                                });
+                            }
+                            else if (tab.type === 'monthly') {
+                                this.ifElseBranchUpdateFunction(1, () => {
+                                    this.buildMonthlyPlanView.bind(this)();
+                                });
+                            }
+                            else if (tab.type === 'yearly') {
+                                this.ifElseBranchUpdateFunction(2, () => {
+                                    this.buildYearlyPlanView.bind(this)();
+                                });
+                            }
+                            else {
+                                this.ifElseBranchUpdateFunction(3, () => {
+                                });
+                            }
+                        }, If);
+                        If.pop();
+                        Column.pop();
+                    });
+                    TabContent.tabBar({ builder: () => {
+                            this.buildTabBar.call(this, tab.name, index);
+                        } });
+                    TabContent.debugLine("entry/src/main/ets/pages/PlanPage.ets(326:17)", "entry");
+                }, TabContent);
+                TabContent.pop();
+            };
+            this.forEachUpdateFunction(elmtId, this.planTabs, forEachItemGenFunction, undefined, true, false);
+        }, ForEach);
+        ForEach.pop();
+        Tabs.pop();
+        Column.pop();
+        Scroll.pop();
+        Column.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            If.create();
+            if (this.showRatingDialog && this.currentRatingTask) {
+                this.ifElseBranchUpdateFunction(0, () => {
+                    this.buildRatingDialog.bind(this)();
+                });
+            }
+            else {
+                this.ifElseBranchUpdateFunction(1, () => {
+                });
+            }
+        }, If);
+        If.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            If.create();
+            if (this.showResultDialog) {
+                this.ifElseBranchUpdateFunction(0, () => {
+                    this.buildResultDialog.bind(this)();
+                });
+            }
+            else {
+                this.ifElseBranchUpdateFunction(1, () => {
+                });
+            }
+        }, If);
+        If.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            If.create();
+            if (this.showProgressDialog) {
+                this.ifElseBranchUpdateFunction(0, () => {
+                    this.buildProgressDialog.bind(this)();
+                });
+            }
+            else {
+                this.ifElseBranchUpdateFunction(1, () => {
+                });
+            }
+        }, If);
+        If.pop();
+        Stack.pop();
+    }
+    buildRatingDialog(parent = null) {
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create();
+            Column.debugLine("entry/src/main/ets/pages/PlanPage.ets(381:5)", "entry");
+            Column.width('100%');
+            Column.height('100%');
+            Column.backgroundColor('rgba(0, 0, 0, 0.5)');
+            Column.justifyContent(FlexAlign.Center);
+            Column.alignItems(HorizontalAlign.Center);
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create();
+            Column.debugLine("entry/src/main/ets/pages/PlanPage.ets(382:7)", "entry");
+            Column.padding(24);
+            Column.backgroundColor('#FFFFFF');
+            Column.borderRadius(16);
+            Column.width('90%');
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create('任务评价');
+            Text.debugLine("entry/src/main/ets/pages/PlanPage.ets(383:9)", "entry");
+            Text.fontSize(18);
+            Text.fontWeight(FontWeight.Bold);
+            Text.margin({ bottom: 16 });
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create(`任务：${this.currentRatingTask?.title || ''}`);
+            Text.debugLine("entry/src/main/ets/pages/PlanPage.ets(388:9)", "entry");
+            Text.fontSize(14);
+            Text.fontColor('#666666');
+            Text.margin({ bottom: 16 });
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create({ space: 8 });
+            Column.debugLine("entry/src/main/ets/pages/PlanPage.ets(393:9)", "entry");
+            Column.margin({ bottom: 16 });
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Row.create();
+            Row.debugLine("entry/src/main/ets/pages/PlanPage.ets(394:11)", "entry");
+            Row.width('100%');
+            Row.justifyContent(FlexAlign.SpaceBetween);
+        }, Row);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create('专注度');
+            Text.debugLine("entry/src/main/ets/pages/PlanPage.ets(395:13)", "entry");
+            Text.fontSize(14);
+            Text.fontColor('#333333');
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create(`${this.focusValue}`);
+            Text.debugLine("entry/src/main/ets/pages/PlanPage.ets(398:13)", "entry");
+            Text.fontSize(14);
+            Text.fontColor('#4A6FFF');
+        }, Text);
+        Text.pop();
+        Row.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Slider.create({
+                value: this.focusValue,
+                min: 1,
+                max: 100,
+                step: 1
+            });
+            Slider.debugLine("entry/src/main/ets/pages/PlanPage.ets(405:11)", "entry");
+            Slider.width('100%');
+            Slider.onChange((value: number) => {
+                this.focusValue = value;
+            });
+        }, Slider);
+        Column.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create({ space: 8 });
+            Column.debugLine("entry/src/main/ets/pages/PlanPage.ets(418:9)", "entry");
+            Column.margin({ bottom: 24 });
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Row.create();
+            Row.debugLine("entry/src/main/ets/pages/PlanPage.ets(419:11)", "entry");
+            Row.width('100%');
+            Row.justifyContent(FlexAlign.SpaceBetween);
+        }, Row);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create('脑力消耗');
+            Text.debugLine("entry/src/main/ets/pages/PlanPage.ets(420:13)", "entry");
+            Text.fontSize(14);
+            Text.fontColor('#333333');
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create(`${this.mentalValue}`);
+            Text.debugLine("entry/src/main/ets/pages/PlanPage.ets(423:13)", "entry");
+            Text.fontSize(14);
+            Text.fontColor('#4A6FFF');
+        }, Text);
+        Text.pop();
+        Row.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Slider.create({
+                value: this.mentalValue,
+                min: 1,
+                max: 100,
+                step: 1
+            });
+            Slider.debugLine("entry/src/main/ets/pages/PlanPage.ets(430:11)", "entry");
+            Slider.width('100%');
+            Slider.onChange((value: number) => {
+                this.mentalValue = value;
+            });
+        }, Slider);
+        Column.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Row.create({ space: 16 });
+            Row.debugLine("entry/src/main/ets/pages/PlanPage.ets(443:9)", "entry");
+            Row.width('100%');
+        }, Row);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Button.createWithLabel('取消');
+            Button.debugLine("entry/src/main/ets/pages/PlanPage.ets(444:11)", "entry");
+            Button.backgroundColor('#E0E0E0');
+            Button.fontColor('#666666');
+            Button.borderRadius(20);
+            Button.layoutWeight(1);
+            Button.onClick(() => {
+                this.showRatingDialog = false;
+                this.currentRatingTask = null;
+            });
+        }, Button);
+        Button.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Button.createWithLabel('提交');
+            Button.debugLine("entry/src/main/ets/pages/PlanPage.ets(454:11)", "entry");
+            Button.backgroundColor('#4A6FFF');
+            Button.fontColor('#FFFFFF');
+            Button.borderRadius(20);
+            Button.layoutWeight(1);
+            Button.onClick(() => {
+                const task = this.currentRatingTask;
+                const f = this.focusValue;
+                const m = this.mentalValue;
+                const sec = this.currentRatingTask?.elapsedTime || 0;
+                if (!task)
+                    return;
+                this.submitTaskTimingAndGetSuggestion(task, f, m, sec).then((msg) => {
+                    this.showRatingDialog = false;
+                    this.currentRatingTask = null;
+                    this.endTiming(task);
+                    this.resultMessage = msg;
+                    this.showResultDialog = true;
+                }).catch(() => {
+                    this.resultMessage = "提交失败";
+                    this.showResultDialog = true;
+                });
+            });
+        }, Button);
+        Button.pop();
+        Row.pop();
+        Column.pop();
+        Column.pop();
+    }
+    buildResultDialog(parent = null) {
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create();
+            Column.debugLine("entry/src/main/ets/pages/PlanPage.ets(495:5)", "entry");
+            Column.width("100%");
+            Column.height("100%");
+            Column.backgroundColor("rgba(0,0,0,0.5)");
+            Column.justifyContent(FlexAlign.Center);
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create();
+            Column.debugLine("entry/src/main/ets/pages/PlanPage.ets(496:7)", "entry");
+            Column.padding(24);
+            Column.backgroundColor(Color.White);
+            Column.borderRadius(16);
+            Column.width("85%");
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create("提交结果");
+            Text.debugLine("entry/src/main/ets/pages/PlanPage.ets(497:9)", "entry");
+            Text.fontSize(18);
+            Text.fontWeight(FontWeight.Bold);
+            Text.margin({ bottom: 16 });
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create(this.resultMessage);
+            Text.debugLine("entry/src/main/ets/pages/PlanPage.ets(502:9)", "entry");
+            Text.fontSize(16);
+            Text.fontColor("#333");
+            Text.textAlign(TextAlign.Center);
+            Text.margin({ bottom: 24 });
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Button.createWithLabel("确定");
+            Button.debugLine("entry/src/main/ets/pages/PlanPage.ets(508:9)", "entry");
+            Button.backgroundColor("#4A6FFF");
+            Button.width("100%");
+            Button.onClick(() => {
+                this.showResultDialog = false;
+            });
+        }, Button);
+        Button.pop();
+        Column.pop();
+        Column.pop();
+    }
+    buildTabBar(tabName: string, index: number, parent = null) {
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create();
+            Column.debugLine("entry/src/main/ets/pages/PlanPage.ets(528:5)", "entry");
+            Column.width('100%');
+            Column.justifyContent(FlexAlign.Center);
+            Column.borderWidth({ bottom: 2 });
+            Column.borderColor(this.currentTabIndex === index ? '#4A6FFF' : 'transparent');
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create(tabName);
+            Text.debugLine("entry/src/main/ets/pages/PlanPage.ets(529:7)", "entry");
+            Text.fontSize(16);
+            Text.fontColor(this.currentTabIndex === index ? '#4A6FFF' : '#666666');
+            Text.fontWeight(this.currentTabIndex === index ? FontWeight.Medium : FontWeight.Normal);
+            Text.padding({ top: 8, bottom: 8, left: 4 });
+        }, Text);
+        Text.pop();
+        Column.pop();
+    }
+    buildTitleBar(parent = null) {
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Row.create();
+            Row.debugLine("entry/src/main/ets/pages/PlanPage.ets(543:5)", "entry");
+            Row.width('100%');
+            Row.padding({
+                left: 16,
+                right: 16,
+                top: 12,
+                bottom: 12
+            });
+            Row.backgroundColor('#F8F9FC');
+        }, Row);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Image.create({ "id": 16777253, "type": 20000, params: [], "bundleName": "com.example.educationapplication", "moduleName": "entry" });
+            Image.debugLine("entry/src/main/ets/pages/PlanPage.ets(544:7)", "entry");
+            Image.width(22);
+            Image.height(22);
+            Image.fillColor(Color.Black);
+            Image.margin({ right: 5 });
+            Image.onClick(() => {
+                router.back();
+            });
+        }, Image);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create('我的学习计划');
+            Text.debugLine("entry/src/main/ets/pages/PlanPage.ets(553:7)", "entry");
+            Text.fontSize(22);
+            Text.fontWeight(FontWeight.Bold);
+            Text.fontColor('#1A1A1A');
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Blank.create();
+            Blank.debugLine("entry/src/main/ets/pages/PlanPage.ets(558:7)", "entry");
+        }, Blank);
+        Blank.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Button.createWithLabel('查看完成度');
+            Button.debugLine("entry/src/main/ets/pages/PlanPage.ets(560:7)", "entry");
+            Button.fontSize(14);
+            Button.fontColor('#FFFFFF');
+            Button.backgroundColor('#4A6FFF');
+            Button.borderRadius(20);
+            Button.height(36);
+            Button.padding({ left: 16, right: 16 });
+            Button.onClick(async () => {
+                this.showProgressDialog = true;
+                this.showChart = false;
+                await this.loadProgressData();
+            });
+        }, Button);
+        Button.pop();
+        Row.pop();
+    }
+    buildDailyPlanView(parent = null) {
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Scroll.create();
+            Scroll.debugLine("entry/src/main/ets/pages/PlanPage.ets(585:5)", "entry");
+            Scroll.width('100%');
+            Scroll.height('100%');
+            Scroll.backgroundColor('#F8F9FC');
+        }, Scroll);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create();
+            Column.debugLine("entry/src/main/ets/pages/PlanPage.ets(586:7)", "entry");
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create('今日任务');
+            Text.debugLine("entry/src/main/ets/pages/PlanPage.ets(587:9)", "entry");
+            Text.fontSize(16);
+            Text.fontWeight(FontWeight.Medium);
+            Text.fontColor('#666666');
+            Text.margin({ left: 16, bottom: 12 });
+            Text.alignSelf(ItemAlign.Start);
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            If.create();
+            if (this.planData.dailyTasks.length === 0) {
+                this.ifElseBranchUpdateFunction(0, () => {
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Text.create('暂无任务');
+                        Text.debugLine("entry/src/main/ets/pages/PlanPage.ets(595:11)", "entry");
+                        Text.fontSize(14);
+                        Text.fontColor('#999');
+                        Text.margin({ top: 40 });
+                        Text.alignSelf(ItemAlign.Center);
+                    }, Text);
+                    Text.pop();
+                });
+            }
+            else {
+                this.ifElseBranchUpdateFunction(1, () => {
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Column.create();
+                        Column.debugLine("entry/src/main/ets/pages/PlanPage.ets(601:11)", "entry");
+                        Column.width('100%');
+                        Column.padding({ left: 16, right: 16 });
+                    }, Column);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        ForEach.create();
+                        const forEachItemGenFunction = _item => {
+                            const task = _item;
+                            this.buildDailyTaskCard.bind(this)(task);
+                        };
+                        this.forEachUpdateFunction(elmtId, this.planData.dailyTasks, forEachItemGenFunction);
+                    }, ForEach);
+                    ForEach.pop();
+                    Column.pop();
+                });
+            }
+        }, If);
+        If.pop();
+        Column.pop();
+        Scroll.pop();
+    }
+    private formatTime(seconds: number): string {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+    private startTiming(task: TaskItem) {
+        this.planData.dailyTasks.forEach(t => {
+            t.isTiming = false;
+            t.elapsedTime = 0;
+        });
+        task.isTiming = true;
+        task.elapsedTime = 0;
+        this.currentTimingTaskId = task.plan_id.toString();
+        if (this.timerInterval !== -1)
+            clearInterval(this.timerInterval);
+        this.timerInterval = setInterval(() => {
+            const current = this.planData.dailyTasks.find(t => t.plan_id.toString() === this.currentTimingTaskId);
+            if (current) {
+                current.elapsedTime = (current.elapsedTime ?? 0) + 1;
+                this.planData.dailyTasks = [...this.planData.dailyTasks];
+            }
+        }, 1000);
+        this.planData.dailyTasks = [...this.planData.dailyTasks];
+    }
+    private endTiming(task: TaskItem) {
+        task.isTiming = false;
+        task.elapsedTime = 0;
+        this.currentTimingTaskId = '';
+        if (this.timerInterval !== -1) {
+            clearInterval(this.timerInterval);
+            this.timerInterval = -1;
+        }
+        this.planData.dailyTasks = [...this.planData.dailyTasks];
+    }
+    private showTimerDialog(task: TaskItem) {
+        promptAction.showDialog({
+            title: '计时控制',
+            message: `任务：${task.title}\n已计时：${this.formatTime(task.elapsedTime || 0)}`,
+            buttons: [
+                { text: '结束计时', color: '#FF3B30' },
+                { text: '取消', color: '#666666' }
+            ]
+        }).then((result) => {
+            if (result.index === 0) {
+                this.currentRatingTask = task;
+                this.showRatingDialog = true;
+            }
+        });
+    }
+    buildDailyTaskCard(task: TaskItem, parent = null) {
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create();
+            Column.debugLine("entry/src/main/ets/pages/PlanPage.ets(674:5)", "entry");
+            Column.width('100%');
+            Column.padding(16);
+            Column.backgroundColor('#FFFFFF');
+            Column.borderRadius(12);
+            Column.margin({ bottom: 12 });
+            Column.opacity(task.status === '已完成' ? 0.7 : 1);
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Stack.create({ alignContent: Alignment.TopStart });
+            Stack.debugLine("entry/src/main/ets/pages/PlanPage.ets(675:7)", "entry");
+            Stack.width('100%');
+        }, Stack);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Row.create();
+            Row.debugLine("entry/src/main/ets/pages/PlanPage.ets(676:9)", "entry");
+            Row.width('100%');
+            Row.margin({ top: 18, left: 5 });
+        }, Row);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Checkbox.create();
+            Checkbox.debugLine("entry/src/main/ets/pages/PlanPage.ets(677:11)", "entry");
+            Checkbox.select(task.status === '已完成');
+            Checkbox.onChange(async (isChecked: boolean) => {
+                await this.syncTaskStatus(task, isChecked);
+            });
+            Checkbox.margin({ right: 4 });
+        }, Checkbox);
+        Checkbox.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create();
+            Column.debugLine("entry/src/main/ets/pages/PlanPage.ets(684:11)", "entry");
+            Column.flexGrow(1);
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Row.create();
+            Row.debugLine("entry/src/main/ets/pages/PlanPage.ets(685:13)", "entry");
+            Row.width('100%');
+            Row.margin({ bottom: 6 });
+        }, Row);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create(task.title);
+            Text.debugLine("entry/src/main/ets/pages/PlanPage.ets(686:15)", "entry");
+            Text.fontSize(12);
+            Text.fontWeight(FontWeight.Medium);
+            Text.fontColor('#1A1A1A');
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create(task.priority || '中');
+            Text.debugLine("entry/src/main/ets/pages/PlanPage.ets(691:15)", "entry");
+            Text.fontSize(12);
+            Text.fontColor('#FFFFFF');
+            Text.backgroundColor(this.getPriorityColor(task.priority));
+            Text.padding({
+                left: 6,
+                right: 6,
+                top: 2,
+                bottom: 2
+            });
+            Text.borderRadius(8);
+            Text.margin({ left: 8 });
+        }, Text);
+        Text.pop();
+        Row.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create(task.description);
+            Text.debugLine("entry/src/main/ets/pages/PlanPage.ets(707:13)", "entry");
+            Text.fontSize(12);
+            Text.fontColor('#666666');
+            Text.width('90%');
+            Text.margin({ bottom: 6 });
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Row.create();
+            Row.debugLine("entry/src/main/ets/pages/PlanPage.ets(713:13)", "entry");
+            Row.width('100%');
+        }, Row);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create(`📅 ${task.task_date}`);
+            Text.debugLine("entry/src/main/ets/pages/PlanPage.ets(714:15)", "entry");
+            Text.fontSize(12);
+            Text.fontColor('#999999');
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create(`状态：${task.status}`);
+            Text.debugLine("entry/src/main/ets/pages/PlanPage.ets(715:15)", "entry");
+            Text.fontSize(12);
+            Text.fontColor('#999999');
+            Text.margin({ left: 12 });
+        }, Text);
+        Text.pop();
+        Row.pop();
+        Column.pop();
+        Row.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Button.createWithChild();
+            Button.debugLine("entry/src/main/ets/pages/PlanPage.ets(724:9)", "entry");
+            Button.backgroundColor(task.isTiming ? '#FF9500' : '#4A6FFF');
+            Button.borderRadius(14);
+            Button.width(55);
+            Button.height(28);
+            Button.margin({ top: -8, left: -8 });
+            Button.onClick(() => {
+                task.isTiming ? this.showTimerDialog(task) : this.startTiming(task);
+            });
+        }, Button);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Row.create({ space: 3 });
+            Row.debugLine("entry/src/main/ets/pages/PlanPage.ets(725:11)", "entry");
+            Row.padding({
+                left: 6,
+                right: 6,
+                top: 2,
+                bottom: 2
+            });
+        }, Row);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            If.create();
+            if (task.isTiming) {
+                this.ifElseBranchUpdateFunction(0, () => {
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Text.create('⏱️');
+                        Text.debugLine("entry/src/main/ets/pages/PlanPage.ets(727:15)", "entry");
+                        Text.fontSize(12);
+                        Text.fontColor('#FFFFFF');
+                    }, Text);
+                    Text.pop();
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Text.create(this.formatTime(task.elapsedTime || 0));
+                        Text.debugLine("entry/src/main/ets/pages/PlanPage.ets(728:15)", "entry");
+                        Text.fontSize(11);
+                        Text.fontColor('#FFFFFF');
+                    }, Text);
+                    Text.pop();
+                });
+            }
+            else {
+                this.ifElseBranchUpdateFunction(1, () => {
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Text.create('⏱️');
+                        Text.debugLine("entry/src/main/ets/pages/PlanPage.ets(730:15)", "entry");
+                        Text.fontSize(12);
+                        Text.fontColor('#FFFFFF');
+                    }, Text);
+                    Text.pop();
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Text.create('开始');
+                        Text.debugLine("entry/src/main/ets/pages/PlanPage.ets(731:15)", "entry");
+                        Text.fontSize(11);
+                        Text.fontColor('#FFFFFF');
+                    }, Text);
+                    Text.pop();
+                });
+            }
+        }, If);
+        If.pop();
+        Row.pop();
+        Button.pop();
+        Stack.pop();
+        Column.pop();
+    }
+    buildMonthlyPlanView(parent = null) {
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Scroll.create();
+            Scroll.debugLine("entry/src/main/ets/pages/PlanPage.ets(762:5)", "entry");
+            Scroll.width('100%');
+            Scroll.height('100%');
+            Scroll.backgroundColor('#F8F9FC');
+        }, Scroll);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create();
+            Column.debugLine("entry/src/main/ets/pages/PlanPage.ets(763:7)", "entry");
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create('月度任务');
+            Text.debugLine("entry/src/main/ets/pages/PlanPage.ets(764:9)", "entry");
+            Text.fontSize(16);
+            Text.fontWeight(FontWeight.Medium);
+            Text.fontColor('#666666');
+            Text.margin({ left: 16, bottom: 12 });
+            Text.alignSelf(ItemAlign.Start);
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create();
+            Column.debugLine("entry/src/main/ets/pages/PlanPage.ets(771:9)", "entry");
+            Column.width('100%');
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            ForEach.create();
+            const forEachItemGenFunction = _item => {
+                const day = _item;
+                this.observeComponentCreation2((elmtId, isInitialRender) => {
+                    Column.create();
+                    Column.debugLine("entry/src/main/ets/pages/PlanPage.ets(773:13)", "entry");
+                    Column.width('100%');
+                    Column.padding({ left: 16, right: 16, bottom: 16 });
+                }, Column);
+                this.observeComponentCreation2((elmtId, isInitialRender) => {
+                    Text.create(`日期：${day}日`);
+                    Text.debugLine("entry/src/main/ets/pages/PlanPage.ets(774:15)", "entry");
+                    Text.fontSize(14);
+                    Text.fontWeight(FontWeight.Medium);
+                    Text.fontColor('#4A6FFF');
+                    Text.margin({ bottom: 8 });
+                }, Text);
+                Text.pop();
+                this.observeComponentCreation2((elmtId, isInitialRender) => {
+                    Column.create();
+                    Column.debugLine("entry/src/main/ets/pages/PlanPage.ets(780:15)", "entry");
+                    Column.width('100%');
+                }, Column);
+                this.observeComponentCreation2((elmtId, isInitialRender) => {
+                    ForEach.create();
+                    const forEachItemGenFunction = _item => {
+                        const task = _item;
+                        this.buildMonthlyTaskItem.bind(this)(task);
+                    };
+                    this.forEachUpdateFunction(elmtId, this.planData.monthlyTasks[day], forEachItemGenFunction);
+                }, ForEach);
+                ForEach.pop();
+                Column.pop();
+                Column.pop();
+            };
+            this.forEachUpdateFunction(elmtId, this.sortObjectKeys(Object.keys(this.planData.monthlyTasks)), forEachItemGenFunction);
+        }, ForEach);
+        ForEach.pop();
+        Column.pop();
+        Column.pop();
+        Scroll.pop();
+    }
+    buildMonthlyTaskItem(task: TaskItem, parent = null) {
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Row.create();
+            Row.debugLine("entry/src/main/ets/pages/PlanPage.ets(801:5)", "entry");
+            Row.width('100%');
+            Row.padding(12);
+            Row.backgroundColor('#FFFFFF');
+            Row.borderRadius(8);
+            Row.margin({ bottom: 8 });
+            Row.opacity(task.status === '已完成' ? 0.7 : 1);
+        }, Row);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Checkbox.create();
+            Checkbox.debugLine("entry/src/main/ets/pages/PlanPage.ets(802:7)", "entry");
+            Checkbox.select(task.status === '已完成');
+            Checkbox.onChange(async (v: boolean) => {
+                await this.syncTaskStatus(task, v);
+            });
+            Checkbox.margin({ right: 8 });
+        }, Checkbox);
+        Checkbox.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Circle.create();
+            Circle.debugLine("entry/src/main/ets/pages/PlanPage.ets(809:7)", "entry");
+            Circle.width(8);
+            Circle.height(8);
+            Circle.fill(this.getPriorityColor(task.priority));
+            Circle.margin({ right: 8 });
+        }, Circle);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create();
+            Column.debugLine("entry/src/main/ets/pages/PlanPage.ets(815:7)", "entry");
+            Column.flexGrow(1);
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Row.create();
+            Row.debugLine("entry/src/main/ets/pages/PlanPage.ets(816:9)", "entry");
+            Row.width('100%');
+        }, Row);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create(task.title);
+            Text.debugLine("entry/src/main/ets/pages/PlanPage.ets(817:11)", "entry");
+            Text.fontSize(14);
+            Text.fontWeight(FontWeight.Medium);
+            Text.fontColor('#1A1A1A');
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create(task.priority || '中');
+            Text.debugLine("entry/src/main/ets/pages/PlanPage.ets(822:11)", "entry");
+            Text.fontSize(10);
+            Text.fontColor('#FFFFFF');
+            Text.backgroundColor(this.getPriorityColor(task.priority));
+            Text.padding({
+                left: 4,
+                right: 4,
+                top: 1,
+                bottom: 1
+            });
+            Text.borderRadius(6);
+            Text.margin({ left: 6 });
+        }, Text);
+        Text.pop();
+        Row.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create(`${task.task_date} · ${task.status}`);
+            Text.debugLine("entry/src/main/ets/pages/PlanPage.ets(837:9)", "entry");
+            Text.fontSize(12);
+            Text.fontColor('#999999');
+            Text.width('100%');
+        }, Text);
+        Text.pop();
+        Column.pop();
+        Row.pop();
+    }
+    buildYearlyPlanView(parent = null) {
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Scroll.create();
+            Scroll.debugLine("entry/src/main/ets/pages/PlanPage.ets(854:5)", "entry");
+            Scroll.width('100%');
+            Scroll.height('100%');
+            Scroll.backgroundColor('#F8F9FC');
+        }, Scroll);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create();
+            Column.debugLine("entry/src/main/ets/pages/PlanPage.ets(855:7)", "entry");
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create('年度任务');
+            Text.debugLine("entry/src/main/ets/pages/PlanPage.ets(856:9)", "entry");
+            Text.fontSize(16);
+            Text.fontWeight(FontWeight.Medium);
+            Text.fontColor('#666666');
+            Text.margin({ left: 16, top: 12, bottom: 12 });
+            Text.alignSelf(ItemAlign.Start);
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create();
+            Column.debugLine("entry/src/main/ets/pages/PlanPage.ets(863:9)", "entry");
+            Column.width('100%');
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            ForEach.create();
+            const forEachItemGenFunction = _item => {
+                const month = _item;
+                this.observeComponentCreation2((elmtId, isInitialRender) => {
+                    Column.create();
+                    Column.debugLine("entry/src/main/ets/pages/PlanPage.ets(865:13)", "entry");
+                    Column.width('100%');
+                    Column.padding(16);
+                    Column.backgroundColor('#FFFFFF');
+                    Column.borderRadius(12);
+                    Column.margin({ left: 16, right: 16, bottom: 12 });
+                }, Column);
+                this.observeComponentCreation2((elmtId, isInitialRender) => {
+                    Row.create();
+                    Row.debugLine("entry/src/main/ets/pages/PlanPage.ets(866:15)", "entry");
+                    Row.width('100%');
+                    Row.margin({ bottom: 8 });
+                }, Row);
+                this.observeComponentCreation2((elmtId, isInitialRender) => {
+                    Text.create(`2026年${month}月`);
+                    Text.debugLine("entry/src/main/ets/pages/PlanPage.ets(867:17)", "entry");
+                    Text.fontSize(16);
+                    Text.fontWeight(FontWeight.Medium);
+                    Text.fontColor('#1A1A1A');
+                    Text.flexGrow(1);
+                }, Text);
+                Text.pop();
+                this.observeComponentCreation2((elmtId, isInitialRender) => {
+                    Text.create(`${this.planData.yearlyTasks[month].tasks.filter(t => t.status === '已完成')
+                        .length}/${this.planData.yearlyTasks[month].count}`);
+                    Text.debugLine("entry/src/main/ets/pages/PlanPage.ets(873:17)", "entry");
+                    Text.fontSize(14);
+                    Text.fontColor('#4A6FFF');
+                }, Text);
+                Text.pop();
+                Row.pop();
+                this.observeComponentCreation2((elmtId, isInitialRender) => {
+                    Progress.create({
+                        value: this.planData.yearlyTasks[month].tasks.filter(t => t.status === '已完成')
+                            .length,
+                        total: this.planData.yearlyTasks[month].count,
+                        type: ProgressType.Linear
+                    });
+                    Progress.debugLine("entry/src/main/ets/pages/PlanPage.ets(881:15)", "entry");
+                    Progress.width('100%');
+                    Progress.height(6);
+                    Progress.color('#4A6FFF');
+                    Progress.backgroundColor('#EFF3FF');
+                    Progress.margin({ bottom: 12 });
+                }, Progress);
+                this.observeComponentCreation2((elmtId, isInitialRender) => {
+                    Column.create();
+                    Column.debugLine("entry/src/main/ets/pages/PlanPage.ets(893:15)", "entry");
+                    Column.width('100%');
+                }, Column);
+                this.observeComponentCreation2((elmtId, isInitialRender) => {
+                    ForEach.create();
+                    const forEachItemGenFunction = _item => {
+                        const task = _item;
+                        this.buildYearlyTaskItem.bind(this)(task);
+                    };
+                    this.forEachUpdateFunction(elmtId, this.planData.yearlyTasks[month].tasks, forEachItemGenFunction);
+                }, ForEach);
+                ForEach.pop();
+                Column.pop();
+                Column.pop();
+            };
+            this.forEachUpdateFunction(elmtId, this.sortObjectKeys(Object.keys(this.planData.yearlyTasks)), forEachItemGenFunction);
+        }, ForEach);
+        ForEach.pop();
+        Column.pop();
+        Column.pop();
+        Scroll.pop();
+    }
+    buildYearlyTaskItem(task: TaskItem, parent = null) {
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Row.create();
+            Row.debugLine("entry/src/main/ets/pages/PlanPage.ets(917:5)", "entry");
+            Row.width('100%');
+            Row.padding(12);
+            Row.backgroundColor('#F8F9FC');
+            Row.borderRadius(8);
+            Row.margin({ bottom: 8 });
+            Row.opacity(task.status === '已完成' ? 0.7 : 1);
+        }, Row);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Checkbox.create();
+            Checkbox.debugLine("entry/src/main/ets/pages/PlanPage.ets(918:7)", "entry");
+            Checkbox.select(task.status === '已完成');
+            Checkbox.onChange(async (v: boolean) => {
+                await this.syncTaskStatus(task, v);
+            });
+            Checkbox.margin({ right: 1 });
+        }, Checkbox);
+        Checkbox.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create();
+            Column.debugLine("entry/src/main/ets/pages/PlanPage.ets(925:7)", "entry");
+            Column.flexGrow(1);
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Row.create();
+            Row.debugLine("entry/src/main/ets/pages/PlanPage.ets(926:9)", "entry");
+            Row.width('100%');
+        }, Row);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create(task.title);
+            Text.debugLine("entry/src/main/ets/pages/PlanPage.ets(927:11)", "entry");
+            Text.fontSize(14);
+            Text.fontWeight(FontWeight.Medium);
+            Text.fontColor('#1A1A1A');
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create(task.priority || '中');
+            Text.debugLine("entry/src/main/ets/pages/PlanPage.ets(932:11)", "entry");
+            Text.fontSize(10);
+            Text.fontColor('#FFFFFF');
+            Text.backgroundColor(this.getPriorityColor(task.priority));
+            Text.padding({
+                left: 4,
+                right: 4,
+                top: 1,
+                bottom: 1
+            });
+            Text.borderRadius(6);
+            Text.margin({ left: 6 });
+        }, Text);
+        Text.pop();
+        Row.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create(task.description);
+            Text.debugLine("entry/src/main/ets/pages/PlanPage.ets(947:9)", "entry");
+            Text.fontSize(12);
+            Text.fontColor('#666666');
+            Text.width('90%');
+            Text.margin({ top: 4, bottom: 4 });
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create(`状态：${task.status}`);
+            Text.debugLine("entry/src/main/ets/pages/PlanPage.ets(953:9)", "entry");
+            Text.fontSize(12);
+            Text.fontColor('#999999');
+            Text.width('100%');
+        }, Text);
+        Text.pop();
+        Column.pop();
+        Row.pop();
+    }
+    private getPriorityColor(priority: '高' | '中' | '低' | ''): ResourceColor {
+        switch (priority) {
+            case '高':
+                return '#FF3B30';
+            case '中':
+                return '#FF9500';
+            case '低':
+                return '#34C759';
+            case '':
+                return '#FF9500';
+            default:
+                return '#999999';
+        }
+    }
+    private sortObjectKeys(keys: string[]): string[] {
+        return keys.sort((a, b) => Number(a) - Number(b));
+    }
+    async loadProgressData() {
+        try {
+            const ctx = getContext(this) as Context;
+            const pref = await dataPreferences.getPreferences(ctx, "user_info");
+            const token = await pref.get("token", "") as string;
+            if (!token) {
+                promptAction.showToast({ message: "请先登录" });
+                this.showChart = true;
+                return;
+            }
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = now.getMonth() + 1;
+            const day = now.getDate();
+            const url = `${this.baseUrl}/user/goals/daily_progress?year=${year}&month=${month}&day=${day}`;
+            let httpRequest = http.createHttp();
+            const res = await httpRequest.request(url, {
+                method: http.RequestMethod.GET,
+                header: {
+                    "Authorization": `Bearer ${token}`,
+                    "Content-Type": "application/json"
+                }
+            });
+            if (res.responseCode === 200) {
+                const resp = JSON.parse(res.result as string) as GoalDailyProgress[];
+                const allTasks: GoalTask[] = [];
+                resp.forEach(g => allTasks.push(...g.tasks));
+                this.progressData = allTasks.map((t): StatItem => ({
+                    name: t.title,
+                    value: t.gpa
+                }));
+            }
+            httpRequest.destroy();
+        }
+        catch (err) {
+            console.error("加载完成度失败", err);
+        }
+        this.showChart = true;
+    }
+    generatePath(): string {
+        if (this.progressData.length === 0)
+            return '';
+        const rowHeight = 220 / this.progressData.length;
+        let path = '';
+        this.progressData.forEach((item, idx) => {
+            const y = idx * rowHeight + rowHeight / 2;
+            const x = (item.value / 4.0) * 300;
+            path += `M0 ${y} L${x} ${y} `;
+        });
+        return path.trim();
+    }
+    truncateText(text: string, maxLen = 5): string {
+        if (!text)
+            return "";
+        return text.length > maxLen ? text.substring(0, maxLen) + "..." : text;
+    }
+    buildProgressDialog(parent = null) {
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create();
+            Column.debugLine("entry/src/main/ets/pages/PlanPage.ets(1054:5)", "entry");
+            Column.width('90%');
+            Column.backgroundColor(Color.White);
+            Column.borderRadius(16);
+            Column.padding(20);
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create("今日任务完成度");
+            Text.debugLine("entry/src/main/ets/pages/PlanPage.ets(1055:7)", "entry");
+            Text.fontSize(18);
+            Text.fontWeight(FontWeight.Bold);
+            Text.margin({ bottom: 20 });
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            If.create();
+            if (this.showChart && this.progressData.length > 0) {
+                this.ifElseBranchUpdateFunction(0, () => {
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        // 🔥 修复：直接用 Scroll()，去掉 scrollable 参数
+                        Scroll.create();
+                        Scroll.debugLine("entry/src/main/ets/pages/PlanPage.ets(1062:9)", "entry");
+                        // 🔥 修复：直接用 Scroll()，去掉 scrollable 参数
+                        Scroll.scrollable(ScrollDirection.Horizontal);
+                        // 🔥 修复：直接用 Scroll()，去掉 scrollable 参数
+                        Scroll.width('100%');
+                        // 🔥 修复：直接用 Scroll()，去掉 scrollable 参数
+                        Scroll.height(220);
+                    }, Scroll);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Stack.create({ alignContent: Alignment.BottomStart });
+                        Stack.debugLine("entry/src/main/ets/pages/PlanPage.ets(1063:11)", "entry");
+                        Stack.width('100%');
+                        Stack.height(220);
+                    }, Stack);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        // 1. Y轴刻度（居左、对齐）
+                        Column.create();
+                        Column.debugLine("entry/src/main/ets/pages/PlanPage.ets(1065:13)", "entry");
+                        // 1. Y轴刻度（居左、对齐）
+                        Column.width(30);
+                        // 1. Y轴刻度（居左、对齐）
+                        Column.height(200);
+                        // 1. Y轴刻度（居左、对齐）
+                        Column.justifyContent(FlexAlign.SpaceBetween);
+                        // 1. Y轴刻度（居左、对齐）
+                        Column.position({ left: 0, top: 0 });
+                    }, Column);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        ForEach.create();
+                        const forEachItemGenFunction = _item => {
+                            const v = _item;
+                            this.observeComponentCreation2((elmtId, isInitialRender) => {
+                                Text.create(v.toFixed(1));
+                                Text.debugLine("entry/src/main/ets/pages/PlanPage.ets(1067:17)", "entry");
+                                Text.fontSize(11);
+                                Text.fontColor('#666');
+                                Text.width(30);
+                                Text.textAlign(TextAlign.End);
+                            }, Text);
+                            Text.pop();
+                        };
+                        this.forEachUpdateFunction(elmtId, [4.0, 3.0, 2.0, 1.0, 0.0], forEachItemGenFunction);
+                    }, ForEach);
+                    ForEach.pop();
+                    // 1. Y轴刻度（居左、对齐）
+                    Column.pop();
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        // 2. 柱状图+X轴（贴底、不重叠、自适应）
+                        Row.create();
+                        Row.debugLine("entry/src/main/ets/pages/PlanPage.ets(1080:13)", "entry");
+                        // 2. 柱状图+X轴（贴底、不重叠、自适应）
+                        Row.width(this.progressData.length * 60);
+                        // 2. 柱状图+X轴（贴底、不重叠、自适应）
+                        Row.height(200);
+                        // 2. 柱状图+X轴（贴底、不重叠、自适应）
+                        Row.justifyContent(FlexAlign.SpaceAround);
+                        // 2. 柱状图+X轴（贴底、不重叠、自适应）
+                        Row.position({ left: 35, bottom: 0 });
+                    }, Row);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        ForEach.create();
+                        const forEachItemGenFunction = _item => {
+                            const item = _item;
+                            this.observeComponentCreation2((elmtId, isInitialRender) => {
+                                Column.create({ space: 6 });
+                                Column.debugLine("entry/src/main/ets/pages/PlanPage.ets(1082:17)", "entry");
+                                Column.width(40);
+                                Column.justifyContent(FlexAlign.End);
+                                Column.onClick(() => {
+                                    promptAction.showToast({
+                                        message: item.name,
+                                        duration: 2000
+                                    });
+                                });
+                            }, Column);
+                            this.observeComponentCreation2((elmtId, isInitialRender) => {
+                                // 柱子（从下往上长）
+                                Rect.create();
+                                Rect.debugLine("entry/src/main/ets/pages/PlanPage.ets(1084:19)", "entry");
+                                // 柱子（从下往上长）
+                                Rect.width(32);
+                                // 柱子（从下往上长）
+                                Rect.height(Math.max(10, (item.value / 4.0) * 10));
+                                // 柱子（从下往上长）
+                                Rect.fill('#4A6FFF');
+                                // 柱子（从下往上长）
+                                Rect.radius(4);
+                            }, Rect);
+                            this.observeComponentCreation2((elmtId, isInitialRender) => {
+                                // X轴标签（贴底、不重叠、自动换行）
+                                Text.create(this.truncateText(item.name, 4));
+                                Text.debugLine("entry/src/main/ets/pages/PlanPage.ets(1091:19)", "entry");
+                                // X轴标签（贴底、不重叠、自动换行）
+                                Text.fontSize(10);
+                                // X轴标签（贴底、不重叠、自动换行）
+                                Text.fontColor('#333');
+                                // X轴标签（贴底、不重叠、自动换行）
+                                Text.textAlign(TextAlign.End);
+                                // X轴标签（贴底、不重叠、自动换行）
+                                Text.maxLines(1);
+                                // X轴标签（贴底、不重叠、自动换行）
+                                Text.textOverflow({ overflow: TextOverflow.Ellipsis });
+                            }, Text);
+                            // X轴标签（贴底、不重叠、自动换行）
+                            Text.pop();
+                            Column.pop();
+                        };
+                        this.forEachUpdateFunction(elmtId, this.progressData, forEachItemGenFunction);
+                    }, ForEach);
+                    ForEach.pop();
+                    // 2. 柱状图+X轴（贴底、不重叠、自适应）
+                    Row.pop();
+                    Stack.pop();
+                    // 🔥 修复：直接用 Scroll()，去掉 scrollable 参数
+                    Scroll.pop();
+                });
+            }
+            else {
+                this.ifElseBranchUpdateFunction(1, () => {
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Text.create("暂无数据");
+                        Text.debugLine("entry/src/main/ets/pages/PlanPage.ets(1123:9)", "entry");
+                        Text.fontSize(14);
+                        Text.fontColor('#999');
+                        Text.margin({ top: 20, bottom: 20 });
+                    }, Text);
+                    Text.pop();
+                });
+            }
+        }, If);
+        If.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Button.createWithLabel("关闭");
+            Button.debugLine("entry/src/main/ets/pages/PlanPage.ets(1129:7)", "entry");
+            Button.backgroundColor('#4A6FFF');
+            Button.width('100%');
+            Button.height(44);
+            Button.borderRadius(22);
+            Button.fontSize(16);
+            Button.fontColor(Color.White);
+            Button.margin({ top: 16 });
+            Button.onClick(() => {
+                this.showProgressDialog = false;
+            });
+        }, Button);
+        Button.pop();
+        Column.pop();
+    }
+    private parseDate(dateStr: string): DateInfo {
+        if (!dateStr) {
+            return { year: '2026', month: '01', day: '01' };
+        }
+        let parts = dateStr.split('-');
+        return {
+            year: parts[0],
+            month: parts[1].padStart(2, '0'),
+            day: parts[2].padStart(2, '0')
+        };
+    }
+    rerender() {
+        this.updateDirtyElements();
+    }
+    static getEntryName(): string {
+        return "PlanPage";
+    }
+}
+registerNamedRoute(() => new PlanPage(undefined, {}), "", { bundleName: "com.example.educationapplication", moduleName: "entry", pagePath: "pages/PlanPage", pageFullPath: "entry/src/main/ets/pages/PlanPage", integratedHsp: "false", moduleType: "followWithHap" });

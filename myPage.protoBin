@@ -1,0 +1,497 @@
+if (!("finalizeConstruction" in ViewPU.prototype)) {
+    Reflect.set(ViewPU.prototype, "finalizeConstruction", () => { });
+}
+interface AIChatDialog_Params {
+    showDialog?: boolean;
+    chatInput?: string;
+    chatMessages?: ChatMessage[];
+    isLoading?: boolean;
+}
+import http from "@ohos:net.http";
+// 定义后端返回的明确类型（ArkTS支持）
+interface BackendResponse {
+    reply: string;
+}
+export class AIChatDialog extends ViewPU {
+    constructor(parent, params, __localStorage, elmtId = -1, paramsLambda = undefined, extraInfo) {
+        super(parent, __localStorage, elmtId, extraInfo);
+        if (typeof paramsLambda === "function") {
+            this.paramsGenerator_ = paramsLambda;
+        }
+        this.__showDialog = new SynchedPropertySimpleTwoWayPU(params.showDialog, this, "showDialog");
+        this.__chatInput = new ObservedPropertySimplePU('', this, "chatInput");
+        this.__chatMessages = new ObservedPropertyObjectPU([
+            {
+                id: 1,
+                content: '你好！我是你的学习助手，有什么可以帮助你的吗？',
+                isUser: false,
+                time: this.getCurrentTime()
+            }
+        ], this, "chatMessages");
+        this.__isLoading = new ObservedPropertySimplePU(false, this, "isLoading");
+        this.setInitiallyProvidedValue(params);
+        this.finalizeConstruction();
+    }
+    setInitiallyProvidedValue(params: AIChatDialog_Params) {
+        if (params.chatInput !== undefined) {
+            this.chatInput = params.chatInput;
+        }
+        if (params.chatMessages !== undefined) {
+            this.chatMessages = params.chatMessages;
+        }
+        if (params.isLoading !== undefined) {
+            this.isLoading = params.isLoading;
+        }
+    }
+    updateStateVars(params: AIChatDialog_Params) {
+    }
+    purgeVariableDependenciesOnElmtId(rmElmtId) {
+        this.__showDialog.purgeDependencyOnElmtId(rmElmtId);
+        this.__chatInput.purgeDependencyOnElmtId(rmElmtId);
+        this.__chatMessages.purgeDependencyOnElmtId(rmElmtId);
+        this.__isLoading.purgeDependencyOnElmtId(rmElmtId);
+    }
+    aboutToBeDeleted() {
+        this.__showDialog.aboutToBeDeleted();
+        this.__chatInput.aboutToBeDeleted();
+        this.__chatMessages.aboutToBeDeleted();
+        this.__isLoading.aboutToBeDeleted();
+        SubscriberManager.Get().delete(this.id__());
+        this.aboutToBeDeletedInternal();
+    }
+    // 外部传入：控制弹窗显示/隐藏（和index.ets联动）
+    private __showDialog: SynchedPropertySimpleTwoWayPU<boolean>;
+    get showDialog() {
+        return this.__showDialog.get();
+    }
+    set showDialog(newValue: boolean) {
+        this.__showDialog.set(newValue);
+    }
+    // 内部状态管理
+    private __chatInput: ObservedPropertySimplePU<string>;
+    get chatInput() {
+        return this.__chatInput.get();
+    }
+    set chatInput(newValue: string) {
+        this.__chatInput.set(newValue);
+    }
+    private __chatMessages: ObservedPropertyObjectPU<ChatMessage[]>;
+    get chatMessages() {
+        return this.__chatMessages.get();
+    }
+    set chatMessages(newValue: ChatMessage[]) {
+        this.__chatMessages.set(newValue);
+    }
+    private __isLoading: ObservedPropertySimplePU<boolean>;
+    get isLoading() {
+        return this.__isLoading.get();
+    }
+    set isLoading(newValue: boolean) {
+        this.__isLoading.set(newValue);
+    }
+    // 工具方法：获取格式化时间（HH:MM）
+    private getCurrentTime(): string {
+        const now = new Date();
+        const hours = now.getHours().toString().padStart(2, '0');
+        const minutes = now.getMinutes().toString().padStart(2, '0');
+        return `${hours}:${minutes}`;
+    }
+    // 核心方法：发送用户消息
+    private sendChatMessage(): void {
+        // 空消息不处理
+        if (this.chatInput.trim() === '')
+            return;
+        // 1. 添加用户消息到聊天记录
+        const userMessage: ChatMessage = {
+            id: Date.now(),
+            content: this.chatInput.trim(),
+            isUser: true,
+            time: this.getCurrentTime()
+        };
+        this.chatMessages.push(userMessage);
+        // 2. 保存输入并清空输入框
+        const userInput = this.chatInput.trim();
+        this.chatInput = '';
+        // 3. 显示加载状态
+        this.isLoading = true;
+        const loadingMsgId = Date.now() + 1;
+        this.chatMessages.push({
+            id: loadingMsgId,
+            content: '正在思考中...',
+            isUser: false,
+            time: this.getCurrentTime()
+        });
+        // 4. 调用后端接口获取回复
+        this.getAIReplyFromBackend(userInput, loadingMsgId);
+    }
+    // 核心方法：调用Python后端接口（ArkTS兼容）
+    private getAIReplyFromBackend(userInput: string, loadingMsgId: number): void {
+        const httpRequest = http.createHttp();
+        // ========== 替换为你的Python后端地址 ==========
+        const backendUrl = 'https://designcompetition-production.up.railway.app/api/chat';
+        // =============================================
+        // 发送POST请求到后端
+        httpRequest.request(backendUrl, {
+            method: http.RequestMethod.POST,
+            header: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            extraData: JSON.stringify({
+                user_id: "user123",
+                message: userInput,
+                session_id: "sess_001"
+            })
+        }, (err: Error | null, data: http.HttpResponse) => {
+            // 关闭加载状态 + 删除加载提示消息
+            this.isLoading = false;
+            this.chatMessages = this.chatMessages.filter((msg: ChatMessage) => msg.id !== loadingMsgId);
+            // 处理请求错误
+            if (err) {
+                console.error('后端请求失败：', JSON.stringify(err));
+                this.chatMessages.push({
+                    id: Date.now() + 2,
+                    content: '抱歉，连接智能助手失败了。请检查：1. 后端服务是否启动；2. 设备是否在同一局域网；3. 后端IP/端口是否正确。',
+                    isUser: false,
+                    time: this.getCurrentTime()
+                });
+                httpRequest.destroy();
+                return;
+            }
+            // 处理后端响应
+            if (data.responseCode === 200) {
+                try {
+                    // 直接使用类型断言，兼容ArkTS
+                    const rawResponse = data.result.toString() as string;
+                    const response = JSON.parse(rawResponse) as BackendResponse;
+                    // 添加AI回复
+                    this.chatMessages.push({
+                        id: Date.now() + 2,
+                        content: response.reply,
+                        isUser: false,
+                        time: this.getCurrentTime()
+                    });
+                }
+                catch (parseErr) {
+                    // 解析失败处理
+                    console.error('响应解析失败：', parseErr);
+                    this.chatMessages.push({
+                        id: Date.now() + 2,
+                        content: '抱歉，助手回复格式错误，请检查后端返回JSON格式。',
+                        isUser: false,
+                        time: this.getCurrentTime()
+                    });
+                }
+            }
+            else {
+                // 后端返回非200状态码
+                this.chatMessages.push({
+                    id: Date.now() + 2,
+                    content: `请求失败（状态码：${data.responseCode}），请检查后端服务。`,
+                    isUser: false,
+                    time: this.getCurrentTime()
+                });
+            }
+            // 销毁HTTP连接，避免内存泄漏
+            httpRequest.destroy();
+        });
+        // 捕获同步异常
+        try { /* 空块仅用于捕获潜在同步错误 */ }
+        catch (generalErr) {
+            this.isLoading = false;
+            this.chatMessages = this.chatMessages.filter((msg: ChatMessage) => msg.id !== loadingMsgId);
+            console.error('请求异常：', generalErr);
+            this.chatMessages.push({
+                id: Date.now() + 2,
+                content: '请求发生未知错误，请重试。',
+                isUser: false,
+                time: this.getCurrentTime()
+            });
+            httpRequest.destroy();
+        }
+    }
+    initialRender() {
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            If.create();
+            if (this.showDialog) {
+                this.ifElseBranchUpdateFunction(0, () => {
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Stack.create();
+                        Stack.debugLine("entry/src/main/ets/pages/chat.ets(163:7)", "entry");
+                        Stack.width('100%');
+                        Stack.height('100%');
+                        Stack.position({ x: 0, y: 0 });
+                    }, Stack);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        // 1. 半透明遮罩（点击关闭弹窗）
+                        Row.create();
+                        Row.debugLine("entry/src/main/ets/pages/chat.ets(165:9)", "entry");
+                        // 1. 半透明遮罩（点击关闭弹窗）
+                        Row.width('100%');
+                        // 1. 半透明遮罩（点击关闭弹窗）
+                        Row.height('100%');
+                        // 1. 半透明遮罩（点击关闭弹窗）
+                        Row.backgroundColor('#00000040');
+                        // 1. 半透明遮罩（点击关闭弹窗）
+                        Row.onClick(() => { this.showDialog = false; });
+                    }, Row);
+                    // 1. 半透明遮罩（点击关闭弹窗）
+                    Row.pop();
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        // 2. 聊天弹窗主体
+                        Column.create();
+                        Column.debugLine("entry/src/main/ets/pages/chat.ets(172:9)", "entry");
+                        // 2. 聊天弹窗主体
+                        Column.width('90%');
+                        // 2. 聊天弹窗主体
+                        Column.height('70%');
+                        // 2. 聊天弹窗主体
+                        Column.padding(20);
+                        // 2. 聊天弹窗主体
+                        Column.margin({ top: 15 });
+                        // 2. 聊天弹窗主体
+                        Column.backgroundColor('#FFFFFF');
+                        // 2. 聊天弹窗主体
+                        Column.borderRadius(20);
+                        // 2. 聊天弹窗主体
+                        Column.shadow({ radius: 20, color: '#00000015', offsetX: 0, offsetY: 4 });
+                    }, Column);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        // 弹窗头部
+                        Row.create();
+                        Row.debugLine("entry/src/main/ets/pages/chat.ets(174:11)", "entry");
+                        // 弹窗头部
+                        Row.justifyContent(FlexAlign.SpaceBetween);
+                        // 弹窗头部
+                        Row.width('100%');
+                        // 弹窗头部
+                        Row.padding({ bottom: 16 });
+                        // 弹窗头部
+                        Row.border({ width: { bottom: 1 }, color: '#E2E8F0' });
+                    }, Row);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Text.create("智能学习助手");
+                        Text.debugLine("entry/src/main/ets/pages/chat.ets(175:13)", "entry");
+                        Text.fontSize(20);
+                        Text.fontWeight(FontWeight.Bold);
+                        Text.fontColor('#1E293B');
+                    }, Text);
+                    Text.pop();
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Image.create({ "id": 16777246, "type": 20000, params: [], "bundleName": "com.example.educationapplication", "moduleName": "entry" });
+                        Image.debugLine("entry/src/main/ets/pages/chat.ets(179:13)", "entry");
+                        Image.width(24);
+                        Image.height(24);
+                        Image.fillColor('#64748B');
+                        Image.onClick(() => { this.showDialog = false; });
+                    }, Image);
+                    // 弹窗头部
+                    Row.pop();
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        // 聊天记录区域（可滚动）
+                        Scroll.create();
+                        Scroll.debugLine("entry/src/main/ets/pages/chat.ets(191:11)", "entry");
+                        // 聊天记录区域（可滚动）
+                        Scroll.flexGrow(1);
+                        // 聊天记录区域（可滚动）
+                        Scroll.backgroundColor('#FFFFFF');
+                        // 聊天记录区域（可滚动）
+                        Scroll.height(350);
+                        // 聊天记录区域（可滚动）
+                        Scroll.padding({ bottom: 12 });
+                    }, Scroll);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Column.create({ space: 12 });
+                        Column.debugLine("entry/src/main/ets/pages/chat.ets(192:13)", "entry");
+                        Column.width('100%');
+                        Column.padding(8);
+                    }, Column);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        ForEach.create();
+                        const forEachItemGenFunction = _item => {
+                            const message = _item;
+                            this.observeComponentCreation2((elmtId, isInitialRender) => {
+                                If.create();
+                                if (message.isUser) {
+                                    this.ifElseBranchUpdateFunction(0, () => {
+                                        this.observeComponentCreation2((elmtId, isInitialRender) => {
+                                            // 用户消息：右对齐 + 蓝色气泡
+                                            Row.create({ space: 8 });
+                                            Row.debugLine("entry/src/main/ets/pages/chat.ets(196:19)", "entry");
+                                            // 用户消息：右对齐 + 蓝色气泡
+                                            Row.justifyContent(FlexAlign.End);
+                                            // 用户消息：右对齐 + 蓝色气泡
+                                            Row.width('100%');
+                                        }, Row);
+                                        this.observeComponentCreation2((elmtId, isInitialRender) => {
+                                            Text.create(message.time);
+                                            Text.debugLine("entry/src/main/ets/pages/chat.ets(197:21)", "entry");
+                                            Text.fontSize(10);
+                                            Text.fontColor('#94A3B8');
+                                            Text.margin({ top: 12 });
+                                        }, Text);
+                                        Text.pop();
+                                        this.observeComponentCreation2((elmtId, isInitialRender) => {
+                                            Column.create();
+                                            Column.debugLine("entry/src/main/ets/pages/chat.ets(201:21)", "entry");
+                                        }, Column);
+                                        this.observeComponentCreation2((elmtId, isInitialRender) => {
+                                            Text.create(message.content);
+                                            Text.debugLine("entry/src/main/ets/pages/chat.ets(202:23)", "entry");
+                                            Text.fontSize(16);
+                                            Text.fontColor('#FFFFFF');
+                                            Text.padding(12);
+                                            Text.backgroundColor('#2563EB');
+                                            Text.borderRadius({
+                                                topLeft: 16, topRight: 4,
+                                                bottomLeft: 16, bottomRight: 16
+                                            });
+                                            Text.constraintSize({ maxWidth: '70%' });
+                                        }, Text);
+                                        Text.pop();
+                                        Column.pop();
+                                        // 用户消息：右对齐 + 蓝色气泡
+                                        Row.pop();
+                                    });
+                                }
+                                else {
+                                    this.ifElseBranchUpdateFunction(1, () => {
+                                        this.observeComponentCreation2((elmtId, isInitialRender) => {
+                                            // AI消息：左对齐 + 灰色气泡
+                                            Row.create({ space: 8 });
+                                            Row.debugLine("entry/src/main/ets/pages/chat.ets(218:19)", "entry");
+                                            // AI消息：左对齐 + 灰色气泡
+                                            Row.justifyContent(FlexAlign.Start);
+                                            // AI消息：左对齐 + 灰色气泡
+                                            Row.width('100%');
+                                        }, Row);
+                                        this.observeComponentCreation2((elmtId, isInitialRender) => {
+                                            Image.create({ "id": 16777249, "type": 20000, params: [], "bundleName": "com.example.educationapplication", "moduleName": "entry" });
+                                            Image.debugLine("entry/src/main/ets/pages/chat.ets(219:21)", "entry");
+                                            Image.width(36);
+                                            Image.height(36);
+                                            Image.borderRadius(18);
+                                        }, Image);
+                                        this.observeComponentCreation2((elmtId, isInitialRender) => {
+                                            Column.create({ space: 4 });
+                                            Column.debugLine("entry/src/main/ets/pages/chat.ets(223:21)", "entry");
+                                        }, Column);
+                                        this.observeComponentCreation2((elmtId, isInitialRender) => {
+                                            Text.create(message.content);
+                                            Text.debugLine("entry/src/main/ets/pages/chat.ets(224:23)", "entry");
+                                            Text.fontSize(16);
+                                            Text.fontColor('#1E293B');
+                                            Text.padding(12);
+                                            Text.textOverflow({
+                                                overflow: TextOverflow.Ellipsis
+                                            });
+                                            Text.maxLines(10);
+                                            Text.backgroundColor('#F1F5F9');
+                                            Text.borderRadius({
+                                                topLeft: 4, topRight: 16,
+                                                bottomLeft: 16, bottomRight: 4
+                                            });
+                                            Text.constraintSize({ maxWidth: '70%' });
+                                        }, Text);
+                                        Text.pop();
+                                        this.observeComponentCreation2((elmtId, isInitialRender) => {
+                                            Text.create(message.time);
+                                            Text.debugLine("entry/src/main/ets/pages/chat.ets(238:23)", "entry");
+                                            Text.fontSize(10);
+                                            Text.fontColor('#94A3B8');
+                                            Text.margin({ left: 4 });
+                                        }, Text);
+                                        Text.pop();
+                                        Column.pop();
+                                        // AI消息：左对齐 + 灰色气泡
+                                        Row.pop();
+                                    });
+                                }
+                            }, If);
+                            If.pop();
+                        };
+                        this.forEachUpdateFunction(elmtId, this.chatMessages, forEachItemGenFunction, (msg: ChatMessage) => msg.id.toString(), false, false);
+                    }, ForEach);
+                    ForEach.pop();
+                    Column.pop();
+                    // 聊天记录区域（可滚动）
+                    Scroll.pop();
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        // 输入区域
+                        Row.create({ space: 8 });
+                        Row.debugLine("entry/src/main/ets/pages/chat.ets(259:11)", "entry");
+                        // 输入区域
+                        Row.width('100%');
+                        // 输入区域
+                        Row.height(40);
+                        // 输入区域
+                        Row.padding(12);
+                        // 输入区域
+                        Row.backgroundColor('#FFFFFF');
+                        // 输入区域
+                        Row.border({ width: { top: 1 }, color: '#E2E8F0' });
+                    }, Row);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        TextInput.create({
+                            text: this.chatInput,
+                            placeholder: '请输入...'
+                        });
+                        TextInput.debugLine("entry/src/main/ets/pages/chat.ets(260:13)", "entry");
+                        TextInput.enabled(!this.isLoading);
+                        TextInput.flexGrow(1);
+                        TextInput.height(35);
+                        TextInput.width('70%');
+                        TextInput.padding({ left: 12, right: 12 });
+                        TextInput.border({ width: 1, color: '#E2E8F0' });
+                        TextInput.borderRadius(24);
+                        TextInput.backgroundColor('#F8FAFC');
+                        TextInput.onChange((value: string) => { this.chatInput = value; });
+                        TextInput.onSubmit(() => { if (!this.isLoading)
+                            this.sendChatMessage(); });
+                    }, TextInput);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        // 发送按钮（加载时禁用）
+                        Button.createWithLabel(this.isLoading ? "加载中..." : "发送");
+                        Button.debugLine("entry/src/main/ets/pages/chat.ets(276:13)", "entry");
+                        // 发送按钮（加载时禁用）
+                        Button.width(60);
+                        // 发送按钮（加载时禁用）
+                        Button.height(30);
+                        // 发送按钮（加载时禁用）
+                        Button.borderRadius(24);
+                        // 发送按钮（加载时禁用）
+                        Button.backgroundColor(this.isLoading ? '#94A3B8' : '#2563EB');
+                        // 发送按钮（加载时禁用）
+                        Button.fontColor('#FFFFFF');
+                        // 发送按钮（加载时禁用）
+                        Button.enabled(!this.isLoading);
+                        // 发送按钮（加载时禁用）
+                        Button.onClick(() => { this.sendChatMessage(); });
+                    }, Button);
+                    // 发送按钮（加载时禁用）
+                    Button.pop();
+                    // 输入区域
+                    Row.pop();
+                    // 2. 聊天弹窗主体
+                    Column.pop();
+                    Stack.pop();
+                });
+            }
+            else {
+                this.ifElseBranchUpdateFunction(1, () => {
+                });
+            }
+        }, If);
+        If.pop();
+    }
+    rerender() {
+        this.updateDirtyElements();
+    }
+}
+// 聊天消息类型定义（全局复用）
+export interface ChatMessage {
+    id: number; // 唯一标识
+    content: string; // 消息内容
+    isUser: boolean; // 是否为用户发送
+    time: string; // 发送时间（HH:MM）
+}

@@ -1,0 +1,1252 @@
+if (!("finalizeConstruction" in ViewPU.prototype)) {
+    Reflect.set(ViewPU.prototype, "finalizeConstruction", () => { });
+}
+interface RecordPage_Params {
+    currentTab?: TabType;
+    showScoreDialog?: boolean;
+    showTaskDialog?: boolean;
+    showCompetitionDialog?: boolean;
+    showTargetDialog?: boolean;
+    showKeywordDialog?: boolean;
+    newKeyword?: string;
+    trackKeywordMap?: Record<string, string[]>;
+    selectedTrack?: string;
+    keywords?: string[];
+    records?: string[];
+    courseName?: string;
+    score?: string;
+    credit?: string;
+    taskName?: string;
+    taskType?: string;
+    taskDuration?: string;
+    competitionName?: string;
+    competitionLevel?: string;
+    competitionResult?: string;
+    targetName?: string;
+    targetDeadline?: string;
+    targetPriority?: string;
+}
+import router from "@ohos:router";
+type TabType = 'home' | 'plan' | 'recommend' | 'mine';
+class RecordPage extends ViewPU {
+    constructor(parent, params, __localStorage, elmtId = -1, paramsLambda = undefined, extraInfo) {
+        super(parent, __localStorage, elmtId, extraInfo);
+        if (typeof paramsLambda === "function") {
+            this.paramsGenerator_ = paramsLambda;
+        }
+        this.__currentTab = new ObservedPropertySimplePU('plan', this, "currentTab");
+        this.__showScoreDialog = new ObservedPropertySimplePU(false, this, "showScoreDialog");
+        this.__showTaskDialog = new ObservedPropertySimplePU(false, this, "showTaskDialog");
+        this.__showCompetitionDialog = new ObservedPropertySimplePU(false, this, "showCompetitionDialog");
+        this.__showTargetDialog = new ObservedPropertySimplePU(false, this, "showTargetDialog");
+        this.__showKeywordDialog = new ObservedPropertySimplePU(false, this, "showKeywordDialog");
+        this.__newKeyword = new ObservedPropertySimplePU('', this, "newKeyword");
+        this.__trackKeywordMap = new ObservedPropertyObjectPU({
+            '考研': ['数学', '英语', '政治', '专业课', '刷题', '背诵', '模考', '复盘'],
+            '考公': ['行测', '申论', '常识', '刷题', '时政', '模考', '复盘', '岗位'],
+            '雅思': ['听力', '阅读', '写作', '口语', '词汇', '语法', '模考', '复盘'],
+            '托福': ['听力', '阅读', '写作', '口语', '词汇', '听力笔记', '模考', '复盘'],
+            '四六级': ['听力', '阅读', '翻译', '写作', '词汇', '语法', '模考', '复盘'],
+            '法考': ['民法', '刑法', '行政法', '商经', '理论法', '刷题', '背诵', '模考']
+        }, this, "trackKeywordMap");
+        this.__selectedTrack = new ObservedPropertySimplePU('考研', this, "selectedTrack");
+        this.__keywords = new ObservedPropertyObjectPU(['数学', '英语', '政治', '专业课', '刷题', '背诵', '模考', '复盘'], this, "keywords");
+        this.__records = new ObservedPropertyObjectPU([], this, "records");
+        this.__courseName = new ObservedPropertySimplePU('', this, "courseName");
+        this.__score = new ObservedPropertySimplePU('', this, "score");
+        this.__credit = new ObservedPropertySimplePU('', this, "credit");
+        this.__taskName = new ObservedPropertySimplePU('', this, "taskName");
+        this.__taskType = new ObservedPropertySimplePU('学习', this, "taskType");
+        this.__taskDuration = new ObservedPropertySimplePU('', this, "taskDuration");
+        this.__competitionName = new ObservedPropertySimplePU('', this, "competitionName");
+        this.__competitionLevel = new ObservedPropertySimplePU('校级', this, "competitionLevel");
+        this.__competitionResult = new ObservedPropertySimplePU('', this, "competitionResult");
+        this.__targetName = new ObservedPropertySimplePU('', this, "targetName");
+        this.__targetDeadline = new ObservedPropertySimplePU('', this, "targetDeadline");
+        this.__targetPriority = new ObservedPropertySimplePU('中', this, "targetPriority");
+        this.setInitiallyProvidedValue(params);
+        this.finalizeConstruction();
+    }
+    setInitiallyProvidedValue(params: RecordPage_Params) {
+        if (params.currentTab !== undefined) {
+            this.currentTab = params.currentTab;
+        }
+        if (params.showScoreDialog !== undefined) {
+            this.showScoreDialog = params.showScoreDialog;
+        }
+        if (params.showTaskDialog !== undefined) {
+            this.showTaskDialog = params.showTaskDialog;
+        }
+        if (params.showCompetitionDialog !== undefined) {
+            this.showCompetitionDialog = params.showCompetitionDialog;
+        }
+        if (params.showTargetDialog !== undefined) {
+            this.showTargetDialog = params.showTargetDialog;
+        }
+        if (params.showKeywordDialog !== undefined) {
+            this.showKeywordDialog = params.showKeywordDialog;
+        }
+        if (params.newKeyword !== undefined) {
+            this.newKeyword = params.newKeyword;
+        }
+        if (params.trackKeywordMap !== undefined) {
+            this.trackKeywordMap = params.trackKeywordMap;
+        }
+        if (params.selectedTrack !== undefined) {
+            this.selectedTrack = params.selectedTrack;
+        }
+        if (params.keywords !== undefined) {
+            this.keywords = params.keywords;
+        }
+        if (params.records !== undefined) {
+            this.records = params.records;
+        }
+        if (params.courseName !== undefined) {
+            this.courseName = params.courseName;
+        }
+        if (params.score !== undefined) {
+            this.score = params.score;
+        }
+        if (params.credit !== undefined) {
+            this.credit = params.credit;
+        }
+        if (params.taskName !== undefined) {
+            this.taskName = params.taskName;
+        }
+        if (params.taskType !== undefined) {
+            this.taskType = params.taskType;
+        }
+        if (params.taskDuration !== undefined) {
+            this.taskDuration = params.taskDuration;
+        }
+        if (params.competitionName !== undefined) {
+            this.competitionName = params.competitionName;
+        }
+        if (params.competitionLevel !== undefined) {
+            this.competitionLevel = params.competitionLevel;
+        }
+        if (params.competitionResult !== undefined) {
+            this.competitionResult = params.competitionResult;
+        }
+        if (params.targetName !== undefined) {
+            this.targetName = params.targetName;
+        }
+        if (params.targetDeadline !== undefined) {
+            this.targetDeadline = params.targetDeadline;
+        }
+        if (params.targetPriority !== undefined) {
+            this.targetPriority = params.targetPriority;
+        }
+    }
+    updateStateVars(params: RecordPage_Params) {
+    }
+    purgeVariableDependenciesOnElmtId(rmElmtId) {
+        this.__currentTab.purgeDependencyOnElmtId(rmElmtId);
+        this.__showScoreDialog.purgeDependencyOnElmtId(rmElmtId);
+        this.__showTaskDialog.purgeDependencyOnElmtId(rmElmtId);
+        this.__showCompetitionDialog.purgeDependencyOnElmtId(rmElmtId);
+        this.__showTargetDialog.purgeDependencyOnElmtId(rmElmtId);
+        this.__showKeywordDialog.purgeDependencyOnElmtId(rmElmtId);
+        this.__newKeyword.purgeDependencyOnElmtId(rmElmtId);
+        this.__trackKeywordMap.purgeDependencyOnElmtId(rmElmtId);
+        this.__selectedTrack.purgeDependencyOnElmtId(rmElmtId);
+        this.__keywords.purgeDependencyOnElmtId(rmElmtId);
+        this.__records.purgeDependencyOnElmtId(rmElmtId);
+        this.__courseName.purgeDependencyOnElmtId(rmElmtId);
+        this.__score.purgeDependencyOnElmtId(rmElmtId);
+        this.__credit.purgeDependencyOnElmtId(rmElmtId);
+        this.__taskName.purgeDependencyOnElmtId(rmElmtId);
+        this.__taskType.purgeDependencyOnElmtId(rmElmtId);
+        this.__taskDuration.purgeDependencyOnElmtId(rmElmtId);
+        this.__competitionName.purgeDependencyOnElmtId(rmElmtId);
+        this.__competitionLevel.purgeDependencyOnElmtId(rmElmtId);
+        this.__competitionResult.purgeDependencyOnElmtId(rmElmtId);
+        this.__targetName.purgeDependencyOnElmtId(rmElmtId);
+        this.__targetDeadline.purgeDependencyOnElmtId(rmElmtId);
+        this.__targetPriority.purgeDependencyOnElmtId(rmElmtId);
+    }
+    aboutToBeDeleted() {
+        this.__currentTab.aboutToBeDeleted();
+        this.__showScoreDialog.aboutToBeDeleted();
+        this.__showTaskDialog.aboutToBeDeleted();
+        this.__showCompetitionDialog.aboutToBeDeleted();
+        this.__showTargetDialog.aboutToBeDeleted();
+        this.__showKeywordDialog.aboutToBeDeleted();
+        this.__newKeyword.aboutToBeDeleted();
+        this.__trackKeywordMap.aboutToBeDeleted();
+        this.__selectedTrack.aboutToBeDeleted();
+        this.__keywords.aboutToBeDeleted();
+        this.__records.aboutToBeDeleted();
+        this.__courseName.aboutToBeDeleted();
+        this.__score.aboutToBeDeleted();
+        this.__credit.aboutToBeDeleted();
+        this.__taskName.aboutToBeDeleted();
+        this.__taskType.aboutToBeDeleted();
+        this.__taskDuration.aboutToBeDeleted();
+        this.__competitionName.aboutToBeDeleted();
+        this.__competitionLevel.aboutToBeDeleted();
+        this.__competitionResult.aboutToBeDeleted();
+        this.__targetName.aboutToBeDeleted();
+        this.__targetDeadline.aboutToBeDeleted();
+        this.__targetPriority.aboutToBeDeleted();
+        SubscriberManager.Get().delete(this.id__());
+        this.aboutToBeDeletedInternal();
+    }
+    private __currentTab: ObservedPropertySimplePU<TabType>;
+    get currentTab() {
+        return this.__currentTab.get();
+    }
+    set currentTab(newValue: TabType) {
+        this.__currentTab.set(newValue);
+    }
+    private __showScoreDialog: ObservedPropertySimplePU<boolean>;
+    get showScoreDialog() {
+        return this.__showScoreDialog.get();
+    }
+    set showScoreDialog(newValue: boolean) {
+        this.__showScoreDialog.set(newValue);
+    }
+    private __showTaskDialog: ObservedPropertySimplePU<boolean>;
+    get showTaskDialog() {
+        return this.__showTaskDialog.get();
+    }
+    set showTaskDialog(newValue: boolean) {
+        this.__showTaskDialog.set(newValue);
+    }
+    private __showCompetitionDialog: ObservedPropertySimplePU<boolean>;
+    get showCompetitionDialog() {
+        return this.__showCompetitionDialog.get();
+    }
+    set showCompetitionDialog(newValue: boolean) {
+        this.__showCompetitionDialog.set(newValue);
+    }
+    private __showTargetDialog: ObservedPropertySimplePU<boolean>;
+    get showTargetDialog() {
+        return this.__showTargetDialog.get();
+    }
+    set showTargetDialog(newValue: boolean) {
+        this.__showTargetDialog.set(newValue);
+    }
+    private __showKeywordDialog: ObservedPropertySimplePU<boolean>;
+    get showKeywordDialog() {
+        return this.__showKeywordDialog.get();
+    }
+    set showKeywordDialog(newValue: boolean) {
+        this.__showKeywordDialog.set(newValue);
+    }
+    private __newKeyword: ObservedPropertySimplePU<string>;
+    get newKeyword() {
+        return this.__newKeyword.get();
+    }
+    set newKeyword(newValue: string) {
+        this.__newKeyword.set(newValue);
+    }
+    private __trackKeywordMap: ObservedPropertyObjectPU<Record<string, string[]>>;
+    get trackKeywordMap() {
+        return this.__trackKeywordMap.get();
+    }
+    set trackKeywordMap(newValue: Record<string, string[]>) {
+        this.__trackKeywordMap.set(newValue);
+    }
+    private __selectedTrack: ObservedPropertySimplePU<string>;
+    get selectedTrack() {
+        return this.__selectedTrack.get();
+    }
+    set selectedTrack(newValue: string) {
+        this.__selectedTrack.set(newValue);
+    }
+    private __keywords: ObservedPropertyObjectPU<string[]>;
+    get keywords() {
+        return this.__keywords.get();
+    }
+    set keywords(newValue: string[]) {
+        this.__keywords.set(newValue);
+    }
+    private __records: ObservedPropertyObjectPU<string[]>;
+    get records() {
+        return this.__records.get();
+    }
+    set records(newValue: string[]) {
+        this.__records.set(newValue);
+    }
+    private __courseName: ObservedPropertySimplePU<string>;
+    get courseName() {
+        return this.__courseName.get();
+    }
+    set courseName(newValue: string) {
+        this.__courseName.set(newValue);
+    }
+    private __score: ObservedPropertySimplePU<string>;
+    get score() {
+        return this.__score.get();
+    }
+    set score(newValue: string) {
+        this.__score.set(newValue);
+    }
+    private __credit: ObservedPropertySimplePU<string>;
+    get credit() {
+        return this.__credit.get();
+    }
+    set credit(newValue: string) {
+        this.__credit.set(newValue);
+    }
+    private __taskName: ObservedPropertySimplePU<string>;
+    get taskName() {
+        return this.__taskName.get();
+    }
+    set taskName(newValue: string) {
+        this.__taskName.set(newValue);
+    }
+    private __taskType: ObservedPropertySimplePU<string>;
+    get taskType() {
+        return this.__taskType.get();
+    }
+    set taskType(newValue: string) {
+        this.__taskType.set(newValue);
+    }
+    private __taskDuration: ObservedPropertySimplePU<string>;
+    get taskDuration() {
+        return this.__taskDuration.get();
+    }
+    set taskDuration(newValue: string) {
+        this.__taskDuration.set(newValue);
+    }
+    private __competitionName: ObservedPropertySimplePU<string>;
+    get competitionName() {
+        return this.__competitionName.get();
+    }
+    set competitionName(newValue: string) {
+        this.__competitionName.set(newValue);
+    }
+    private __competitionLevel: ObservedPropertySimplePU<string>;
+    get competitionLevel() {
+        return this.__competitionLevel.get();
+    }
+    set competitionLevel(newValue: string) {
+        this.__competitionLevel.set(newValue);
+    }
+    private __competitionResult: ObservedPropertySimplePU<string>;
+    get competitionResult() {
+        return this.__competitionResult.get();
+    }
+    set competitionResult(newValue: string) {
+        this.__competitionResult.set(newValue);
+    }
+    private __targetName: ObservedPropertySimplePU<string>;
+    get targetName() {
+        return this.__targetName.get();
+    }
+    set targetName(newValue: string) {
+        this.__targetName.set(newValue);
+    }
+    private __targetDeadline: ObservedPropertySimplePU<string>;
+    get targetDeadline() {
+        return this.__targetDeadline.get();
+    }
+    set targetDeadline(newValue: string) {
+        this.__targetDeadline.set(newValue);
+    }
+    private __targetPriority: ObservedPropertySimplePU<string>;
+    get targetPriority() {
+        return this.__targetPriority.get();
+    }
+    set targetPriority(newValue: string) {
+        this.__targetPriority.set(newValue);
+    }
+    initialRender() {
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Stack.create();
+            Stack.debugLine("entry/src/main/ets/pages/RecordPage.ets(49:5)", "entry");
+            Stack.width('100%');
+            Stack.height('100%');
+            Stack.expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM, SafeAreaEdge.TOP]);
+        }, Stack);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create();
+            Column.debugLine("entry/src/main/ets/pages/RecordPage.ets(50:7)", "entry");
+            Column.width('100%');
+            Column.height('100%');
+            Column.backgroundColor('#F5F7FA');
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            // 赛道横向滑动
+            Scroll.create();
+            Scroll.debugLine("entry/src/main/ets/pages/RecordPage.ets(52:9)", "entry");
+            // 赛道横向滑动
+            Scroll.scrollable(ScrollDirection.Horizontal);
+            // 赛道横向滑动
+            Scroll.width('100%');
+        }, Scroll);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Row.create({ space: 12 });
+            Row.debugLine("entry/src/main/ets/pages/RecordPage.ets(53:11)", "entry");
+            Row.padding(12);
+        }, Row);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            ForEach.create();
+            const forEachItemGenFunction = _item => {
+                const track = _item;
+                this.observeComponentCreation2((elmtId, isInitialRender) => {
+                    Text.create(track);
+                    Text.debugLine("entry/src/main/ets/pages/RecordPage.ets(55:15)", "entry");
+                    Text.padding({ left: 16, right: 16, top: 8, bottom: 8 });
+                    Text.backgroundColor(this.selectedTrack === track ? '#409EFF' : '#F5F5F5');
+                    Text.fontColor(this.selectedTrack === track ? '#fff' : '#333');
+                    Text.borderRadius(20);
+                    Text.onClick(() => {
+                        this.selectedTrack = track;
+                        this.keywords = this.trackKeywordMap[track];
+                    });
+                }, Text);
+                Text.pop();
+            };
+            this.forEachUpdateFunction(elmtId, Object.keys(ObservedObject.GetRawObject(this.trackKeywordMap)), forEachItemGenFunction);
+        }, ForEach);
+        ForEach.pop();
+        Row.pop();
+        // 赛道横向滑动
+        Scroll.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Grid.create();
+            Grid.debugLine("entry/src/main/ets/pages/RecordPage.ets(70:9)", "entry");
+            Grid.columnsTemplate('1fr 1fr 1fr');
+            Grid.rowsTemplate('1fr 1fr 1fr');
+            Grid.columnsGap(10);
+            Grid.rowsGap(10);
+            Grid.width('90%');
+            Grid.height(200);
+            Grid.margin({ bottom: 30 });
+        }, Grid);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            ForEach.create();
+            const forEachItemGenFunction = (_item, index: number) => {
+                const item = _item;
+                {
+                    const itemCreation2 = (elmtId, isInitialRender) => {
+                        GridItem.create(() => { }, false);
+                        GridItem.debugLine("entry/src/main/ets/pages/RecordPage.ets(72:13)", "entry");
+                    };
+                    const observedDeepRender = () => {
+                        this.observeComponentCreation2(itemCreation2, GridItem);
+                        this.observeComponentCreation2((elmtId, isInitialRender) => {
+                            If.create();
+                            if (index === this.keywords.length - 1) {
+                                this.ifElseBranchUpdateFunction(0, () => {
+                                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                                        Column.create();
+                                        Column.debugLine("entry/src/main/ets/pages/RecordPage.ets(74:17)", "entry");
+                                        Column.width('100%');
+                                        Column.height('100%');
+                                        Column.justifyContent(FlexAlign.Center);
+                                        Column.backgroundColor('#ffdfe8e8');
+                                        Column.borderRadius(12);
+                                        Column.onClick(() => {
+                                            this.showKeywordDialog = true;
+                                        });
+                                    }, Column);
+                                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                                        Text.create('+');
+                                        Text.debugLine("entry/src/main/ets/pages/RecordPage.ets(75:19)", "entry");
+                                    }, Text);
+                                    Text.pop();
+                                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                                        Text.create('添加');
+                                        Text.debugLine("entry/src/main/ets/pages/RecordPage.ets(76:19)", "entry");
+                                    }, Text);
+                                    Text.pop();
+                                    Column.pop();
+                                });
+                            }
+                            else {
+                                this.ifElseBranchUpdateFunction(1, () => {
+                                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                                        Stack.create();
+                                        Stack.debugLine("entry/src/main/ets/pages/RecordPage.ets(87:17)", "entry");
+                                        Stack.width('100%');
+                                        Stack.height('100%');
+                                        Stack.backgroundColor('#ffd2dde9');
+                                        Stack.borderRadius(12);
+                                    }, Stack);
+                                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                                        Text.create(item);
+                                        Text.debugLine("entry/src/main/ets/pages/RecordPage.ets(88:19)", "entry");
+                                        Text.width('100%');
+                                        Text.height('100%');
+                                        Text.textAlign(TextAlign.Center);
+                                        Text.fontSize(16);
+                                        Text.fontColor('#1E293B');
+                                    }, Text);
+                                    Text.pop();
+                                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                                        Row.create();
+                                        Row.debugLine("entry/src/main/ets/pages/RecordPage.ets(95:19)", "entry");
+                                        Row.width('100%');
+                                        Row.justifyContent(FlexAlign.End);
+                                        Row.padding({ right: 4, top: 4 });
+                                    }, Row);
+                                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                                        Image.create({ "id": 16777246, "type": 20000, params: [], "bundleName": "com.example.educationapplication", "moduleName": "entry" });
+                                        Image.debugLine("entry/src/main/ets/pages/RecordPage.ets(96:21)", "entry");
+                                        Image.width(15);
+                                        Image.height(15);
+                                        Image.fillColor('#ffc94a47');
+                                        Image.onClick(() => {
+                                            this.keywords.splice(index, 1);
+                                            this.trackKeywordMap[this.selectedTrack] = [...this.keywords];
+                                        });
+                                    }, Image);
+                                    Row.pop();
+                                    Stack.pop();
+                                });
+                            }
+                        }, If);
+                        If.pop();
+                        GridItem.pop();
+                    };
+                    observedDeepRender();
+                }
+            };
+            this.forEachUpdateFunction(elmtId, this.keywords, forEachItemGenFunction, (item: string, index: number) => item + index, true, true);
+        }, ForEach);
+        ForEach.pop();
+        Grid.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            // 四个按钮
+            Column.create({ space: 12 });
+            Column.debugLine("entry/src/main/ets/pages/RecordPage.ets(126:9)", "entry");
+            // 四个按钮
+            Column.width('90%');
+            // 四个按钮
+            Column.margin({ bottom: 20 });
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Row.create({ space: 12 });
+            Row.debugLine("entry/src/main/ets/pages/RecordPage.ets(127:11)", "entry");
+        }, Row);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Button.createWithLabel('加成绩 📊');
+            Button.debugLine("entry/src/main/ets/pages/RecordPage.ets(128:13)", "entry");
+            Button.layoutWeight(1);
+            Button.height(76);
+            Button.backgroundColor('#ff83c9cf');
+            Button.fontColor('#ff332121');
+            Button.borderRadius(12);
+            Button.onClick(() => { this.showScoreDialog = true; });
+        }, Button);
+        Button.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Button.createWithLabel('加任务 ✓');
+            Button.debugLine("entry/src/main/ets/pages/RecordPage.ets(136:13)", "entry");
+            Button.layoutWeight(1);
+            Button.height(76);
+            Button.fontColor('#ff2f2626');
+            Button.backgroundColor('#ff8eac7f');
+            Button.borderRadius(12);
+            Button.onClick(() => { this.showTaskDialog = true; });
+        }, Button);
+        Button.pop();
+        Row.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Row.create({ space: 12 });
+            Row.debugLine("entry/src/main/ets/pages/RecordPage.ets(145:11)", "entry");
+        }, Row);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Button.createWithLabel('加竞赛 🏆');
+            Button.debugLine("entry/src/main/ets/pages/RecordPage.ets(146:13)", "entry");
+            Button.layoutWeight(1);
+            Button.height(76);
+            Button.fontColor('#ff322d2d');
+            Button.backgroundColor('#ffc0ac90');
+            Button.borderRadius(12);
+            Button.onClick(() => { this.showCompetitionDialog = true; });
+        }, Button);
+        Button.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Button.createWithLabel('设目标 🎯');
+            Button.debugLine("entry/src/main/ets/pages/RecordPage.ets(154:13)", "entry");
+            Button.layoutWeight(1);
+            Button.height(76);
+            Button.fontColor('#ff2b2a2a');
+            Button.backgroundColor('#909399');
+            Button.borderRadius(12);
+            Button.onClick(() => { this.showTargetDialog = true; });
+        }, Button);
+        Button.pop();
+        Row.pop();
+        // 四个按钮
+        Column.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            // 记录区（带清空按钮）
+            Row.create();
+            Row.debugLine("entry/src/main/ets/pages/RecordPage.ets(167:9)", "entry");
+            // 记录区（带清空按钮）
+            Row.width('90%');
+            // 记录区（带清空按钮）
+            Row.justifyContent(FlexAlign.SpaceBetween);
+            // 记录区（带清空按钮）
+            Row.margin({ left: 16, bottom: 12 });
+        }, Row);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create('最近记录');
+            Text.debugLine("entry/src/main/ets/pages/RecordPage.ets(168:11)", "entry");
+            Text.fontSize(18);
+            Text.fontWeight(FontWeight.Medium);
+            Text.fontColor('#1E293B');
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Button.createWithLabel('清空全部');
+            Button.debugLine("entry/src/main/ets/pages/RecordPage.ets(173:11)", "entry");
+            Button.width(80);
+            Button.height(32);
+            Button.fontSize(12);
+            Button.backgroundColor('#ffc88893');
+            Button.fontColor('#ff282827');
+            Button.borderRadius(50);
+            Button.onClick(() => {
+                this.records = [];
+            });
+        }, Button);
+        Button.pop();
+        // 记录区（带清空按钮）
+        Row.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Scroll.create();
+            Scroll.debugLine("entry/src/main/ets/pages/RecordPage.ets(188:9)", "entry");
+            Scroll.layoutWeight(1);
+            Scroll.backgroundColor('#F9FAFC');
+            Scroll.borderRadius(16);
+            Scroll.width('90%');
+        }, Scroll);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create({ space: 8 });
+            Column.debugLine("entry/src/main/ets/pages/RecordPage.ets(189:11)", "entry");
+            Column.width('100%');
+            Column.padding({ bottom: 20 });
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            If.create();
+            if (this.records.length === 0) {
+                this.ifElseBranchUpdateFunction(0, () => {
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Text.create('暂无记录');
+                        Text.debugLine("entry/src/main/ets/pages/RecordPage.ets(191:15)", "entry");
+                        Text.fontColor('#999');
+                        Text.margin({ top: 20 });
+                    }, Text);
+                    Text.pop();
+                });
+            }
+            else {
+                this.ifElseBranchUpdateFunction(1, () => {
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        ForEach.create();
+                        const forEachItemGenFunction = (_item, index: number) => {
+                            const r = _item;
+                            this.observeComponentCreation2((elmtId, isInitialRender) => {
+                                Row.create();
+                                Row.debugLine("entry/src/main/ets/pages/RecordPage.ets(196:17)", "entry");
+                                Row.width('100%');
+                                Row.padding({ left: 16, right: 12, top: 12, bottom: 12 });
+                                Row.backgroundColor('#fffffcfc');
+                                Row.borderRadius(8);
+                                Row.shadow({ radius: 2, color: '#00000011', offsetX: 0, offsetY: 1 });
+                            }, Row);
+                            this.observeComponentCreation2((elmtId, isInitialRender) => {
+                                Text.create(r);
+                                Text.debugLine("entry/src/main/ets/pages/RecordPage.ets(197:19)", "entry");
+                                Text.layoutWeight(1);
+                                Text.fontSize(14);
+                                Text.fontColor('#1E293B');
+                            }, Text);
+                            Text.pop();
+                            this.observeComponentCreation2((elmtId, isInitialRender) => {
+                                Button.createWithLabel('删除');
+                                Button.debugLine("entry/src/main/ets/pages/RecordPage.ets(201:19)", "entry");
+                                Button.width(60);
+                                Button.height(32);
+                                Button.fontSize(12);
+                                Button.backgroundColor('#ffbe4e63');
+                                Button.fontColor('#fff');
+                                Button.borderRadius(6);
+                                Button.onClick(() => {
+                                    this.records.splice(index, 1);
+                                });
+                            }, Button);
+                            Button.pop();
+                            Row.pop();
+                        };
+                        this.forEachUpdateFunction(elmtId, this.records, forEachItemGenFunction, (r: string, index: number) => r + index, true, true);
+                    }, ForEach);
+                    ForEach.pop();
+                });
+            }
+        }, If);
+        If.pop();
+        Column.pop();
+        Scroll.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            // 底部导航
+            Row.create();
+            Row.debugLine("entry/src/main/ets/pages/RecordPage.ets(229:9)", "entry");
+            // 底部导航
+            Row.width('100%');
+            // 底部导航
+            Row.height(70);
+            // 底部导航
+            Row.backgroundColor('#fff');
+        }, Row);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create({ space: 4 });
+            Column.debugLine("entry/src/main/ets/pages/RecordPage.ets(230:11)", "entry");
+            Column.layoutWeight(1);
+            Column.onClick(() => {
+                this.currentTab = 'home';
+                router.pushUrl({ url: 'pages/Index' });
+            });
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create('🏠');
+            Text.debugLine("entry/src/main/ets/pages/RecordPage.ets(231:13)", "entry");
+            Text.fontSize(24);
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create('首页');
+            Text.debugLine("entry/src/main/ets/pages/RecordPage.ets(233:13)", "entry");
+            Text.fontSize(14);
+        }, Text);
+        Text.pop();
+        Column.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create({ space: 4 });
+            Column.debugLine("entry/src/main/ets/pages/RecordPage.ets(242:11)", "entry");
+            Column.layoutWeight(1);
+            Column.onClick(() => { this.currentTab = 'plan'; });
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create('📝');
+            Text.debugLine("entry/src/main/ets/pages/RecordPage.ets(243:13)", "entry");
+            Text.fontSize(24);
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create('待办');
+            Text.debugLine("entry/src/main/ets/pages/RecordPage.ets(245:13)", "entry");
+            Text.fontSize(14);
+            Text.fontColor('#409EFF');
+        }, Text);
+        Text.pop();
+        Column.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create({ space: 4 });
+            Column.debugLine("entry/src/main/ets/pages/RecordPage.ets(252:11)", "entry");
+            Column.layoutWeight(1);
+            Column.onClick(() => {
+                this.currentTab = 'recommend';
+                router.pushUrl({ url: 'pages/PlannedPage' });
+            });
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create('📅');
+            Text.debugLine("entry/src/main/ets/pages/RecordPage.ets(253:13)", "entry");
+            Text.fontSize(24);
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create('推荐');
+            Text.debugLine("entry/src/main/ets/pages/RecordPage.ets(255:13)", "entry");
+            Text.fontSize(14);
+        }, Text);
+        Text.pop();
+        Column.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create({ space: 4 });
+            Column.debugLine("entry/src/main/ets/pages/RecordPage.ets(264:11)", "entry");
+            Column.layoutWeight(1);
+            Column.onClick(() => {
+                this.currentTab = 'mine';
+                router.pushUrl({ url: 'pages/my/my' });
+            });
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create('👤');
+            Text.debugLine("entry/src/main/ets/pages/RecordPage.ets(265:13)", "entry");
+            Text.fontSize(24);
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create('我的');
+            Text.debugLine("entry/src/main/ets/pages/RecordPage.ets(267:13)", "entry");
+            Text.fontSize(14);
+        }, Text);
+        Text.pop();
+        Column.pop();
+        // 底部导航
+        Row.pop();
+        Column.pop();
+        // 弹窗层
+        this.ScoreDialog.bind(this)();
+        this.TaskDialog.bind(this)();
+        this.CompetitionDialog.bind(this)();
+        this.TargetDialog.bind(this)();
+        this.KeywordDialog.bind(this)();
+        Stack.pop();
+    }
+    // 弹窗代码保持不变...
+    ScoreDialog(parent = null) {
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            If.create();
+            if (this.showScoreDialog) {
+                this.ifElseBranchUpdateFunction(0, () => {
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Stack.create();
+                        Stack.debugLine("entry/src/main/ets/pages/RecordPage.ets(300:7)", "entry");
+                        Stack.width('100%');
+                        Stack.height('100%');
+                    }, Stack);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Row.create();
+                        Row.debugLine("entry/src/main/ets/pages/RecordPage.ets(301:9)", "entry");
+                        Row.width('100%');
+                        Row.height('100%');
+                        Row.backgroundColor('#00000060');
+                        Row.onClick(() => { this.showScoreDialog = false; });
+                    }, Row);
+                    Row.pop();
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Column.create({ space: 16 });
+                        Column.debugLine("entry/src/main/ets/pages/RecordPage.ets(307:9)", "entry");
+                        Column.width('90%');
+                        Column.padding(24);
+                        Column.backgroundColor('#ffececec');
+                        Column.borderRadius(16);
+                        Column.align(Alignment.Center);
+                    }, Column);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Text.create('添加成绩');
+                        Text.debugLine("entry/src/main/ets/pages/RecordPage.ets(308:11)", "entry");
+                        Text.fontSize(18);
+                        Text.fontWeight(FontWeight.Medium);
+                    }, Text);
+                    Text.pop();
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        TextInput.create({ placeholder: '课程名称', text: this.courseName });
+                        TextInput.debugLine("entry/src/main/ets/pages/RecordPage.ets(312:11)", "entry");
+                        TextInput.width('100%');
+                        TextInput.height(44);
+                        TextInput.backgroundColor('#fff');
+                        TextInput.border({ width: 1, color: '#eee' });
+                        TextInput.borderRadius(8);
+                        TextInput.onChange((v: string) => this.courseName = v);
+                    }, TextInput);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        TextInput.create({ placeholder: '分数', text: this.score });
+                        TextInput.debugLine("entry/src/main/ets/pages/RecordPage.ets(320:11)", "entry");
+                        TextInput.width('100%');
+                        TextInput.height(44);
+                        TextInput.backgroundColor('#fff');
+                        TextInput.border({ width: 1, color: '#eee' });
+                        TextInput.borderRadius(8);
+                        TextInput.onChange((v: string) => this.score = v);
+                    }, TextInput);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Row.create({ space: 16 });
+                        Row.debugLine("entry/src/main/ets/pages/RecordPage.ets(328:11)", "entry");
+                    }, Row);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Button.createWithLabel('取消');
+                        Button.debugLine("entry/src/main/ets/pages/RecordPage.ets(329:13)", "entry");
+                        Button.fontColor('#ff191818');
+                        Button.width(100);
+                        Button.height(44);
+                        Button.backgroundColor('#F5F5F5');
+                        Button.onClick(() => { this.showScoreDialog = false; });
+                    }, Button);
+                    Button.pop();
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Button.createWithLabel('确定');
+                        Button.debugLine("entry/src/main/ets/pages/RecordPage.ets(336:13)", "entry");
+                        Button.width(100);
+                        Button.height(44);
+                        Button.backgroundColor('#ff46a494');
+                        Button.fontColor('#fff');
+                        Button.onClick(() => {
+                            if (this.courseName && this.score) {
+                                this.records.push(`成绩：${this.courseName} ${this.score}分`);
+                                this.showScoreDialog = false;
+                                this.courseName = '';
+                                this.score = '';
+                            }
+                        });
+                    }, Button);
+                    Button.pop();
+                    Row.pop();
+                    Column.pop();
+                    Stack.pop();
+                });
+            }
+            else {
+                this.ifElseBranchUpdateFunction(1, () => {
+                });
+            }
+        }, If);
+        If.pop();
+    }
+    TaskDialog(parent = null) {
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            If.create();
+            if (this.showTaskDialog) {
+                this.ifElseBranchUpdateFunction(0, () => {
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Stack.create();
+                        Stack.debugLine("entry/src/main/ets/pages/RecordPage.ets(364:7)", "entry");
+                        Stack.width('100%');
+                        Stack.height('100%');
+                    }, Stack);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Row.create();
+                        Row.debugLine("entry/src/main/ets/pages/RecordPage.ets(365:9)", "entry");
+                        Row.width('100%');
+                        Row.height('100%');
+                        Row.backgroundColor('#00000060');
+                        Row.onClick(() => { this.showTaskDialog = false; });
+                    }, Row);
+                    Row.pop();
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Column.create({ space: 16 });
+                        Column.debugLine("entry/src/main/ets/pages/RecordPage.ets(371:9)", "entry");
+                        Column.width('90%');
+                        Column.padding(24);
+                        Column.backgroundColor('#ffeae8e8');
+                        Column.borderRadius(16);
+                        Column.align(Alignment.Center);
+                    }, Column);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Text.create('添加任务');
+                        Text.debugLine("entry/src/main/ets/pages/RecordPage.ets(372:11)", "entry");
+                        Text.fontSize(18);
+                    }, Text);
+                    Text.pop();
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        TextInput.create({ placeholder: '任务名称', text: this.taskName });
+                        TextInput.debugLine("entry/src/main/ets/pages/RecordPage.ets(374:11)", "entry");
+                        TextInput.width('100%');
+                        TextInput.height(44);
+                        TextInput.backgroundColor('#fff');
+                        TextInput.border({ width: 1, color: '#eee' });
+                        TextInput.borderRadius(8);
+                        TextInput.onChange((v: string) => this.taskName = v);
+                    }, TextInput);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Row.create({ space: 16 });
+                        Row.debugLine("entry/src/main/ets/pages/RecordPage.ets(382:11)", "entry");
+                    }, Row);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Button.createWithLabel('取消');
+                        Button.debugLine("entry/src/main/ets/pages/RecordPage.ets(383:13)", "entry");
+                        Button.fontColor('#ff060505');
+                        Button.width(100);
+                        Button.height(44);
+                        Button.backgroundColor('#F5F5F5');
+                        Button.onClick(() => { this.showTaskDialog = false; });
+                    }, Button);
+                    Button.pop();
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Button.createWithLabel('确定');
+                        Button.debugLine("entry/src/main/ets/pages/RecordPage.ets(390:13)", "entry");
+                        Button.width(100);
+                        Button.height(44);
+                        Button.backgroundColor('#ff4e7046');
+                        Button.fontColor('#fff');
+                        Button.onClick(() => {
+                            if (this.taskName) {
+                                this.records.push(`任务：${this.taskName}`);
+                                this.showTaskDialog = false;
+                                this.taskName = '';
+                            }
+                        });
+                    }, Button);
+                    Button.pop();
+                    Row.pop();
+                    Column.pop();
+                    Stack.pop();
+                });
+            }
+            else {
+                this.ifElseBranchUpdateFunction(1, () => {
+                });
+            }
+        }, If);
+        If.pop();
+    }
+    CompetitionDialog(parent = null) {
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            If.create();
+            if (this.showCompetitionDialog) {
+                this.ifElseBranchUpdateFunction(0, () => {
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Stack.create();
+                        Stack.debugLine("entry/src/main/ets/pages/RecordPage.ets(417:7)", "entry");
+                        Stack.width('100%');
+                        Stack.height('100%');
+                    }, Stack);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Row.create();
+                        Row.debugLine("entry/src/main/ets/pages/RecordPage.ets(418:9)", "entry");
+                        Row.width('100%');
+                        Row.height('100%');
+                        Row.backgroundColor('#00000060');
+                        Row.onClick(() => { this.showCompetitionDialog = false; });
+                    }, Row);
+                    Row.pop();
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Column.create({ space: 16 });
+                        Column.debugLine("entry/src/main/ets/pages/RecordPage.ets(424:9)", "entry");
+                        Column.width('90%');
+                        Column.padding(24);
+                        Column.backgroundColor('#ffe8e6e6');
+                        Column.borderRadius(16);
+                        Column.align(Alignment.Center);
+                    }, Column);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Text.create('添加竞赛');
+                        Text.debugLine("entry/src/main/ets/pages/RecordPage.ets(425:11)", "entry");
+                        Text.fontSize(18);
+                    }, Text);
+                    Text.pop();
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        TextInput.create({ placeholder: '竞赛名称', text: this.competitionName });
+                        TextInput.debugLine("entry/src/main/ets/pages/RecordPage.ets(427:11)", "entry");
+                        TextInput.width('100%');
+                        TextInput.height(44);
+                        TextInput.backgroundColor('#fff');
+                        TextInput.border({ width: 1, color: '#eee' });
+                        TextInput.borderRadius(8);
+                        TextInput.onChange((v: string) => this.competitionName = v);
+                    }, TextInput);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Row.create({ space: 16 });
+                        Row.debugLine("entry/src/main/ets/pages/RecordPage.ets(435:11)", "entry");
+                    }, Row);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Button.createWithLabel('取消');
+                        Button.debugLine("entry/src/main/ets/pages/RecordPage.ets(436:13)", "entry");
+                        Button.fontColor('#ff111010');
+                        Button.width(100);
+                        Button.height(44);
+                        Button.backgroundColor('#F5F5F5');
+                        Button.onClick(() => { this.showCompetitionDialog = false; });
+                    }, Button);
+                    Button.pop();
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Button.createWithLabel('确定');
+                        Button.debugLine("entry/src/main/ets/pages/RecordPage.ets(443:13)", "entry");
+                        Button.width(100);
+                        Button.height(44);
+                        Button.backgroundColor('#ffa59a8c');
+                        Button.fontColor('#fff7f6f6');
+                        Button.onClick(() => {
+                            if (this.competitionName) {
+                                this.records.push(`竞赛：${this.competitionName}`);
+                                this.showCompetitionDialog = false;
+                                this.competitionName = '';
+                            }
+                        });
+                    }, Button);
+                    Button.pop();
+                    Row.pop();
+                    Column.pop();
+                    Stack.pop();
+                });
+            }
+            else {
+                this.ifElseBranchUpdateFunction(1, () => {
+                });
+            }
+        }, If);
+        If.pop();
+    }
+    TargetDialog(parent = null) {
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            If.create();
+            if (this.showTargetDialog) {
+                this.ifElseBranchUpdateFunction(0, () => {
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Stack.create();
+                        Stack.debugLine("entry/src/main/ets/pages/RecordPage.ets(470:7)", "entry");
+                        Stack.width('100%');
+                        Stack.height('100%');
+                    }, Stack);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Row.create();
+                        Row.debugLine("entry/src/main/ets/pages/RecordPage.ets(471:9)", "entry");
+                        Row.width('100%');
+                        Row.height('100%');
+                        Row.backgroundColor('#00000060');
+                        Row.onClick(() => { this.showTargetDialog = false; });
+                    }, Row);
+                    Row.pop();
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Column.create({ space: 16 });
+                        Column.debugLine("entry/src/main/ets/pages/RecordPage.ets(477:9)", "entry");
+                        Column.width('90%');
+                        Column.padding(24);
+                        Column.backgroundColor('#ffe8e8e8');
+                        Column.borderRadius(16);
+                        Column.align(Alignment.Center);
+                    }, Column);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Text.create('设置目标');
+                        Text.debugLine("entry/src/main/ets/pages/RecordPage.ets(478:11)", "entry");
+                        Text.fontSize(18);
+                    }, Text);
+                    Text.pop();
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        TextInput.create({ placeholder: '目标内容', text: this.targetName });
+                        TextInput.debugLine("entry/src/main/ets/pages/RecordPage.ets(480:11)", "entry");
+                        TextInput.width('100%');
+                        TextInput.height(44);
+                        TextInput.backgroundColor('#fff');
+                        TextInput.border({ width: 1, color: '#eee' });
+                        TextInput.borderRadius(8);
+                        TextInput.onChange((v: string) => this.targetName = v);
+                    }, TextInput);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Row.create({ space: 16 });
+                        Row.debugLine("entry/src/main/ets/pages/RecordPage.ets(488:11)", "entry");
+                    }, Row);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Button.createWithLabel('取消');
+                        Button.debugLine("entry/src/main/ets/pages/RecordPage.ets(489:13)", "entry");
+                        Button.fontColor('#ff0a0a0a');
+                        Button.width(100);
+                        Button.height(44);
+                        Button.backgroundColor('#F5F5F5');
+                        Button.onClick(() => { this.showTargetDialog = false; });
+                    }, Button);
+                    Button.pop();
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Button.createWithLabel('确定');
+                        Button.debugLine("entry/src/main/ets/pages/RecordPage.ets(496:13)", "entry");
+                        Button.width(100);
+                        Button.height(44);
+                        Button.backgroundColor('#ff6078ac');
+                        Button.fontColor('#fff');
+                        Button.onClick(() => {
+                            if (this.targetName) {
+                                this.records.push(`目标：${this.targetName}`);
+                                this.showTargetDialog = false;
+                                this.targetName = '';
+                            }
+                        });
+                    }, Button);
+                    Button.pop();
+                    Row.pop();
+                    Column.pop();
+                    Stack.pop();
+                });
+            }
+            else {
+                this.ifElseBranchUpdateFunction(1, () => {
+                });
+            }
+        }, If);
+        If.pop();
+    }
+    KeywordDialog(parent = null) {
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            If.create();
+            if (this.showKeywordDialog) {
+                this.ifElseBranchUpdateFunction(0, () => {
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Stack.create();
+                        Stack.debugLine("entry/src/main/ets/pages/RecordPage.ets(523:7)", "entry");
+                        Stack.width('100%');
+                        Stack.height('100%');
+                    }, Stack);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Row.create();
+                        Row.debugLine("entry/src/main/ets/pages/RecordPage.ets(524:9)", "entry");
+                        Row.width('100%');
+                        Row.height('100%');
+                        Row.backgroundColor('#00000060');
+                        Row.onClick(() => { this.showKeywordDialog = false; });
+                    }, Row);
+                    Row.pop();
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Column.create({ space: 16 });
+                        Column.debugLine("entry/src/main/ets/pages/RecordPage.ets(530:9)", "entry");
+                        Column.width('90%');
+                        Column.padding(24);
+                        Column.backgroundColor('#ffe2e2e2');
+                        Column.borderRadius(16);
+                        Column.align(Alignment.Center);
+                    }, Column);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Text.create('添加关键词');
+                        Text.debugLine("entry/src/main/ets/pages/RecordPage.ets(531:11)", "entry");
+                        Text.fontSize(18);
+                    }, Text);
+                    Text.pop();
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        TextInput.create({ placeholder: '输入关键词', text: this.newKeyword });
+                        TextInput.debugLine("entry/src/main/ets/pages/RecordPage.ets(533:11)", "entry");
+                        TextInput.width('100%');
+                        TextInput.height(44);
+                        TextInput.backgroundColor('#fff');
+                        TextInput.border({ width: 1, color: '#eee' });
+                        TextInput.borderRadius(8);
+                        TextInput.onChange((v: string) => this.newKeyword = v);
+                    }, TextInput);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Row.create({ space: 16 });
+                        Row.debugLine("entry/src/main/ets/pages/RecordPage.ets(541:11)", "entry");
+                    }, Row);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Button.createWithLabel('取消');
+                        Button.debugLine("entry/src/main/ets/pages/RecordPage.ets(542:13)", "entry");
+                        Button.fontColor('#ff151414');
+                        Button.width(100);
+                        Button.height(44);
+                        Button.backgroundColor('#F5F5F5');
+                        Button.onClick(() => { this.showKeywordDialog = false; });
+                    }, Button);
+                    Button.pop();
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Button.createWithLabel('确定');
+                        Button.debugLine("entry/src/main/ets/pages/RecordPage.ets(549:13)", "entry");
+                        Button.width(100);
+                        Button.height(44);
+                        Button.backgroundColor('#ff2c5580');
+                        Button.fontColor('#fff');
+                        Button.onClick(() => {
+                            if (this.newKeyword.trim() !== '') {
+                                this.keywords.splice(this.keywords.length - 1, 0, this.newKeyword);
+                                this.trackKeywordMap[this.selectedTrack] = [...this.keywords];
+                                this.newKeyword = '';
+                                this.showKeywordDialog = false;
+                            }
+                        });
+                    }, Button);
+                    Button.pop();
+                    Row.pop();
+                    Column.pop();
+                    Stack.pop();
+                });
+            }
+            else {
+                this.ifElseBranchUpdateFunction(1, () => {
+                });
+            }
+        }, If);
+        If.pop();
+    }
+    rerender() {
+        this.updateDirtyElements();
+    }
+    static getEntryName(): string {
+        return "RecordPage";
+    }
+}
+registerNamedRoute(() => new RecordPage(undefined, {}), "", { bundleName: "com.example.educationapplication", moduleName: "entry", pagePath: "pages/RecordPage", pageFullPath: "entry/src/main/ets/pages/RecordPage", integratedHsp: "false", moduleType: "followWithHap" });

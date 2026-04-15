@@ -1,0 +1,463 @@
+if (!("finalizeConstruction" in ViewPU.prototype)) {
+    Reflect.set(ViewPU.prototype, "finalizeConstruction", () => { });
+}
+interface NewsPage_Params {
+    newsList?: NewsItem[];
+    expandedId?: number;
+    showImagePreview?: boolean;
+    previewImage?: Resource | null;
+    showVideoPlayer?: boolean;
+    currentVideo?: Resource | null;
+}
+import router from "@ohos:router";
+interface NewsItem {
+    id: number;
+    title: string;
+    summary: string;
+    content: string;
+    type: 'image' | 'video';
+    mediaRes: Resource; // 本地资源：图片用$r('app.media.xx'), 视频用$r('app.media.xx')
+    time: string;
+}
+class NewsPage extends ViewPU {
+    constructor(parent, params, __localStorage, elmtId = -1, paramsLambda = undefined, extraInfo) {
+        super(parent, __localStorage, elmtId, extraInfo);
+        if (typeof paramsLambda === "function") {
+            this.paramsGenerator_ = paramsLambda;
+        }
+        this.__newsList = new ObservedPropertyObjectPU([
+            {
+                id: 1,
+                title: "教育部发布2026年考试招生改革要点",
+                summary: "教育部近日发布2026年考试招生改革要点，强调推进分类考试、综合评价、多元录取，优化高考选考科目设置...",
+                content: "教育部近日发布2026年考试招生改革要点，明确推进分类考试、综合评价、多元录取机制。将优化高考选考科目设置，扩大高职院校分类招生规模，完善职业教育升学通道。同时，加强命题质量管控，推进高考阅卷信息化，保障考试公平公正...",
+                type: 'image',
+                mediaRes: { "id": 16777230, "type": 20000, params: [], "bundleName": "com.example.educationapplication", "moduleName": "entry" },
+                time: "2026-03-07 20:00"
+            },
+            {
+                id: 2,
+                title: "本地高校联合发布：AI辅助学习平台正式上线",
+                summary: "我市多所高校联合开发的AI辅助学习平台今日上线，提供智能答疑、知识点拆解、个性化学习路径等功能...",
+                content: "我市多所重点高校联合研发的AI辅助学习平台正式上线。该平台整合了智能答疑系统、知识点图谱拆解、个性化学习路径推荐等功能，可根据学生学习数据精准推送学习内容，目前已开放给在校学生免费使用，未来将逐步覆盖K12及职业教育领域...",
+                type: 'video',
+                mediaRes: { "id": 16777258, "type": 20000, params: [], "bundleName": "com.example.educationapplication", "moduleName": "entry" },
+                time: "2026-03-07 19:15"
+            },
+            {
+                id: 3,
+                title: "全国大学生英语四六级考试时间公布",
+                summary: "2026年上半年全国大学英语四六级考试时间已公布，笔试定于6月14日，口试定于5月17-18日...",
+                content: "2026年上半年全国大学英语四六级考试安排正式公布：笔试时间为6月14日，口试时间为5月17日至18日。报名工作将于3月下旬启动，考生可通过全国大学英语四、六级考试网进行报名。同时，考试将继续推进信息化改革，优化听力考试播放方式...",
+                type: 'image',
+                mediaRes: { "id": 16777250, "type": 20000, params: [], "bundleName": "com.example.educationapplication", "moduleName": "entry" },
+                time: "2026-03-07 18:30"
+            },
+            {
+                id: 4,
+                title: "职业教育法修订：强化实践教学与就业导向",
+                summary: "新修订的职业教育法正式实施，强调强化实践教学环节，推动校企深度合作，提升职业院校毕业生就业质量...",
+                content: "新修订的《职业教育法》今日正式实施，重点强化实践教学环节，要求职业院校实践教学课时占比不低于50%。同时，推动校企深度合作，鼓励企业参与人才培养，建立现代学徒制。法案还明确了职业教育与普通教育同等重要的地位，为职业教育发展提供了法律保障...",
+                type: 'video',
+                mediaRes: { "id": 16777259, "type": 20000, params: [], "bundleName": "com.example.educationapplication", "moduleName": "entry" },
+                time: "2026-03-07 17:45"
+            }
+        ], this, "newsList");
+        this.__expandedId = new ObservedPropertySimplePU(-1, this, "expandedId");
+        this.__showImagePreview = new ObservedPropertySimplePU(false, this, "showImagePreview");
+        this.__previewImage = new ObservedPropertyObjectPU(null, this, "previewImage");
+        this.__showVideoPlayer = new ObservedPropertySimplePU(false, this, "showVideoPlayer");
+        this.__currentVideo = new ObservedPropertyObjectPU(null, this, "currentVideo");
+        this.setInitiallyProvidedValue(params);
+        this.finalizeConstruction();
+    }
+    setInitiallyProvidedValue(params: NewsPage_Params) {
+        if (params.newsList !== undefined) {
+            this.newsList = params.newsList;
+        }
+        if (params.expandedId !== undefined) {
+            this.expandedId = params.expandedId;
+        }
+        if (params.showImagePreview !== undefined) {
+            this.showImagePreview = params.showImagePreview;
+        }
+        if (params.previewImage !== undefined) {
+            this.previewImage = params.previewImage;
+        }
+        if (params.showVideoPlayer !== undefined) {
+            this.showVideoPlayer = params.showVideoPlayer;
+        }
+        if (params.currentVideo !== undefined) {
+            this.currentVideo = params.currentVideo;
+        }
+    }
+    updateStateVars(params: NewsPage_Params) {
+    }
+    purgeVariableDependenciesOnElmtId(rmElmtId) {
+        this.__newsList.purgeDependencyOnElmtId(rmElmtId);
+        this.__expandedId.purgeDependencyOnElmtId(rmElmtId);
+        this.__showImagePreview.purgeDependencyOnElmtId(rmElmtId);
+        this.__previewImage.purgeDependencyOnElmtId(rmElmtId);
+        this.__showVideoPlayer.purgeDependencyOnElmtId(rmElmtId);
+        this.__currentVideo.purgeDependencyOnElmtId(rmElmtId);
+    }
+    aboutToBeDeleted() {
+        this.__newsList.aboutToBeDeleted();
+        this.__expandedId.aboutToBeDeleted();
+        this.__showImagePreview.aboutToBeDeleted();
+        this.__previewImage.aboutToBeDeleted();
+        this.__showVideoPlayer.aboutToBeDeleted();
+        this.__currentVideo.aboutToBeDeleted();
+        SubscriberManager.Get().delete(this.id__());
+        this.aboutToBeDeletedInternal();
+    }
+    // 模拟学习新闻数据（替换成你的新闻）
+    private __newsList: ObservedPropertyObjectPU<NewsItem[]>;
+    get newsList() {
+        return this.__newsList.get();
+    }
+    set newsList(newValue: NewsItem[]) {
+        this.__newsList.set(newValue);
+    }
+    private __expandedId: ObservedPropertySimplePU<number>;
+    get expandedId() {
+        return this.__expandedId.get();
+    }
+    set expandedId(newValue: number) {
+        this.__expandedId.set(newValue);
+    }
+    private __showImagePreview: ObservedPropertySimplePU<boolean>;
+    get showImagePreview() {
+        return this.__showImagePreview.get();
+    }
+    set showImagePreview(newValue: boolean) {
+        this.__showImagePreview.set(newValue);
+    }
+    private __previewImage: ObservedPropertyObjectPU<Resource | null>;
+    get previewImage() {
+        return this.__previewImage.get();
+    }
+    set previewImage(newValue: Resource | null) {
+        this.__previewImage.set(newValue);
+    }
+    private __showVideoPlayer: ObservedPropertySimplePU<boolean>;
+    get showVideoPlayer() {
+        return this.__showVideoPlayer.get();
+    }
+    set showVideoPlayer(newValue: boolean) {
+        this.__showVideoPlayer.set(newValue);
+    }
+    private __currentVideo: ObservedPropertyObjectPU<Resource | null>;
+    get currentVideo() {
+        return this.__currentVideo.get();
+    }
+    set currentVideo(newValue: Resource | null) {
+        this.__currentVideo.set(newValue);
+    }
+    // 切换展开/收起
+    toggleExpand(id: number) {
+        this.expandedId = this.expandedId === id ? -1 : id;
+    }
+    // 打开图片预览
+    openImagePreview(mediaRes: Resource) {
+        this.previewImage = mediaRes;
+        this.showImagePreview = true;
+    }
+    // 打开本地视频播放
+    openVideoPlayer(mediaRes: Resource) {
+        this.currentVideo = mediaRes;
+        this.showVideoPlayer = true;
+    }
+    initialRender() {
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create();
+            Column.debugLine("entry/src/main/ets/pages/NewsPage.ets(78:5)", "entry");
+            Column.width('100%');
+            Column.height('100%');
+            Column.expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM, SafeAreaEdge.TOP]);
+            Column.backgroundImage({ "id": 16777261, "type": 20000, params: [], "bundleName": "com.example.educationapplication", "moduleName": "entry" });
+            Column.backgroundImageSize(ImageSize.Cover);
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Row.create();
+            Row.debugLine("entry/src/main/ets/pages/NewsPage.ets(79:7)", "entry");
+            Row.width('100%');
+            Row.padding({ left: 16, right: 16, top: 15 });
+            Row.margin({ bottom: 5 });
+        }, Row);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Image.create({ "id": 16777232, "type": 20000, params: [], "bundleName": "com.example.educationapplication", "moduleName": "entry" });
+            Image.debugLine("entry/src/main/ets/pages/NewsPage.ets(80:9)", "entry");
+            Image.width(34);
+            Image.onClick(() => {
+                router.back();
+            });
+        }, Image);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            // 页面标题
+            Text.create("学习新闻推荐");
+            Text.debugLine("entry/src/main/ets/pages/NewsPage.ets(86:9)", "entry");
+            // 页面标题
+            Text.fontSize(24);
+            // 页面标题
+            Text.fontWeight(FontWeight.Medium);
+            // 页面标题
+            Text.fontColor('#333');
+            // 页面标题
+            Text.width('100%');
+            // 页面标题
+            Text.textAlign(TextAlign.Center);
+            // 页面标题
+            Text.layoutWeight(1);
+        }, Text);
+        // 页面标题
+        Text.pop();
+        Row.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            // 可滚动新闻列表
+            Scroll.create();
+            Scroll.debugLine("entry/src/main/ets/pages/NewsPage.ets(98:7)", "entry");
+            // 可滚动新闻列表
+            Scroll.layoutWeight(1);
+        }, Scroll);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create({ space: 16 });
+            Column.debugLine("entry/src/main/ets/pages/NewsPage.ets(99:9)", "entry");
+            Column.width('100%');
+            Column.padding({ bottom: 20 });
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            ForEach.create();
+            const forEachItemGenFunction = _item => {
+                const item = _item;
+                this.observeComponentCreation2((elmtId, isInitialRender) => {
+                    Row.create({ space: 12 });
+                    Row.debugLine("entry/src/main/ets/pages/NewsPage.ets(101:13)", "entry");
+                    Row.width('94%');
+                    Row.padding(12);
+                    Row.backgroundColor('#ffffff');
+                    Row.borderRadius(12);
+                    Row.shadow({ radius: 4, color: '#1A000000', offsetX: 0, offsetY: 2 });
+                }, Row);
+                this.observeComponentCreation2((elmtId, isInitialRender) => {
+                    If.create();
+                    // 左侧：图片/视频
+                    if (item.type === 'image') {
+                        this.ifElseBranchUpdateFunction(0, () => {
+                            this.observeComponentCreation2((elmtId, isInitialRender) => {
+                                Image.create(item.mediaRes);
+                                Image.debugLine("entry/src/main/ets/pages/NewsPage.ets(104:17)", "entry");
+                                Image.width(120);
+                                Image.height(90);
+                                Image.borderRadius(8);
+                                Image.objectFit(ImageFit.Cover);
+                                Image.onClick(() => {
+                                    this.openImagePreview(item.mediaRes);
+                                });
+                            }, Image);
+                        });
+                    }
+                    else {
+                        this.ifElseBranchUpdateFunction(1, () => {
+                            this.observeComponentCreation2((elmtId, isInitialRender) => {
+                                // 视频：封面 + 播放按钮
+                                Stack.create();
+                                Stack.debugLine("entry/src/main/ets/pages/NewsPage.ets(114:17)", "entry");
+                                // 视频：封面 + 播放按钮
+                                Stack.width(120);
+                                // 视频：封面 + 播放按钮
+                                Stack.height(90);
+                                // 视频：封面 + 播放按钮
+                                Stack.onClick(() => {
+                                    this.openVideoPlayer(item.mediaRes);
+                                });
+                            }, Stack);
+                            this.observeComponentCreation2((elmtId, isInitialRender) => {
+                                Image.create(item.mediaRes);
+                                Image.debugLine("entry/src/main/ets/pages/NewsPage.ets(115:19)", "entry");
+                                Image.width(120);
+                                Image.height(90);
+                                Image.borderRadius(8);
+                                Image.objectFit(ImageFit.Cover);
+                            }, Image);
+                            this.observeComponentCreation2((elmtId, isInitialRender) => {
+                                Circle.create();
+                                Circle.debugLine("entry/src/main/ets/pages/NewsPage.ets(120:19)", "entry");
+                                Circle.width(32);
+                                Circle.height(32);
+                                Circle.backgroundColor('#fffafafc');
+                            }, Circle);
+                            this.observeComponentCreation2((elmtId, isInitialRender) => {
+                                Text.create("▶");
+                                Text.debugLine("entry/src/main/ets/pages/NewsPage.ets(124:19)", "entry");
+                                Text.fontSize(16);
+                                Text.fontColor('#ffffff');
+                            }, Text);
+                            Text.pop();
+                            // 视频：封面 + 播放按钮
+                            Stack.pop();
+                        });
+                    }
+                }, If);
+                If.pop();
+                this.observeComponentCreation2((elmtId, isInitialRender) => {
+                    // 右侧：新闻文字
+                    Column.create({ space: 6 });
+                    Column.debugLine("entry/src/main/ets/pages/NewsPage.ets(136:15)", "entry");
+                    // 右侧：新闻文字
+                    Column.layoutWeight(1);
+                }, Column);
+                this.observeComponentCreation2((elmtId, isInitialRender) => {
+                    Text.create(item.title);
+                    Text.debugLine("entry/src/main/ets/pages/NewsPage.ets(137:17)", "entry");
+                    Text.fontSize(16);
+                    Text.fontWeight(FontWeight.Medium);
+                    Text.fontColor('#222');
+                    Text.maxLines(3);
+                    Text.textOverflow({ overflow: TextOverflow.Ellipsis });
+                }, Text);
+                Text.pop();
+                this.observeComponentCreation2((elmtId, isInitialRender) => {
+                    Text.create(this.expandedId === item.id ? item.content : item.summary);
+                    Text.debugLine("entry/src/main/ets/pages/NewsPage.ets(144:17)", "entry");
+                    Text.fontSize(14);
+                    Text.fontColor('#666');
+                    Text.maxLines(this.expandedId === item.id ? 0 : 4);
+                    Text.textOverflow({ overflow: TextOverflow.Ellipsis });
+                }, Text);
+                Text.pop();
+                this.observeComponentCreation2((elmtId, isInitialRender) => {
+                    Row.create();
+                    Row.debugLine("entry/src/main/ets/pages/NewsPage.ets(150:17)", "entry");
+                    Row.width('100%');
+                    Row.justifyContent(FlexAlign.SpaceBetween);
+                }, Row);
+                this.observeComponentCreation2((elmtId, isInitialRender) => {
+                    Text.create(item.time);
+                    Text.debugLine("entry/src/main/ets/pages/NewsPage.ets(151:19)", "entry");
+                    Text.fontSize(12);
+                    Text.fontColor('#999');
+                }, Text);
+                Text.pop();
+                this.observeComponentCreation2((elmtId, isInitialRender) => {
+                    Text.create(this.expandedId === item.id ? "展开" : "收起");
+                    Text.debugLine("entry/src/main/ets/pages/NewsPage.ets(154:19)", "entry");
+                    Text.fontSize(12);
+                    Text.fontColor('#165DFF');
+                    Text.onClick(() => {
+                        this.toggleExpand(item.id);
+                    });
+                }, Text);
+                Text.pop();
+                Row.pop();
+                // 右侧：新闻文字
+                Column.pop();
+                Row.pop();
+            };
+            this.forEachUpdateFunction(elmtId, this.newsList, forEachItemGenFunction, (item: NewsItem) => item.id.toString(), false, false);
+        }, ForEach);
+        ForEach.pop();
+        Column.pop();
+        // 可滚动新闻列表
+        Scroll.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            If.create();
+            // 图片预览弹窗
+            if (this.showImagePreview) {
+                this.ifElseBranchUpdateFunction(0, () => {
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Stack.create();
+                        Stack.debugLine("entry/src/main/ets/pages/NewsPage.ets(180:9)", "entry");
+                        Stack.width('100%');
+                        Stack.height('100%');
+                        Stack.position({ x: 0, y: 0 });
+                        Stack.zIndex(10);
+                    }, Stack);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Column.create();
+                        Column.debugLine("entry/src/main/ets/pages/NewsPage.ets(181:11)", "entry");
+                        Column.width('100%');
+                        Column.height('100%');
+                        Column.backgroundColor('#00000080');
+                        Column.onClick(() => {
+                            this.showImagePreview = false;
+                        });
+                    }, Column);
+                    Column.pop();
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Image.create(this.previewImage);
+                        Image.debugLine("entry/src/main/ets/pages/NewsPage.ets(188:11)", "entry");
+                        Image.width('90%');
+                        Image.objectFit(ImageFit.Contain);
+                    }, Image);
+                    Stack.pop();
+                });
+            }
+            // 本地视频播放弹窗（完整实现）
+            else {
+                this.ifElseBranchUpdateFunction(1, () => {
+                });
+            }
+        }, If);
+        If.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            If.create();
+            // 本地视频播放弹窗（完整实现）
+            if (this.showVideoPlayer) {
+                this.ifElseBranchUpdateFunction(0, () => {
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Stack.create();
+                        Stack.debugLine("entry/src/main/ets/pages/NewsPage.ets(199:9)", "entry");
+                        Stack.width('100%');
+                        Stack.height('100%');
+                        Stack.position({ x: 0, y: 0 });
+                        Stack.zIndex(10);
+                    }, Stack);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Column.create();
+                        Column.debugLine("entry/src/main/ets/pages/NewsPage.ets(200:11)", "entry");
+                        Column.width('100%');
+                        Column.height('100%');
+                        Column.backgroundColor('#00000080');
+                        Column.onClick(() => {
+                            this.showVideoPlayer = false;
+                        });
+                    }, Column);
+                    Column.pop();
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        // 本地视频播放组件
+                        Video.create({
+                            src: this.currentVideo,
+                            controller: new VideoController()
+                        });
+                        Video.debugLine("entry/src/main/ets/pages/NewsPage.ets(208:11)", "entry");
+                        // 本地视频播放组件
+                        Video.width('85%');
+                        // 本地视频播放组件
+                        Video.height(220);
+                        // 本地视频播放组件
+                        Video.borderRadius(12);
+                        // 本地视频播放组件
+                        Video.autoPlay(true);
+                        // 本地视频播放组件
+                        Video.controls(true);
+                    }, Video);
+                    Stack.pop();
+                });
+            }
+            else {
+                this.ifElseBranchUpdateFunction(1, () => {
+                });
+            }
+        }, If);
+        If.pop();
+        Column.pop();
+    }
+    rerender() {
+        this.updateDirtyElements();
+    }
+    static getEntryName(): string {
+        return "NewsPage";
+    }
+}
+registerNamedRoute(() => new NewsPage(undefined, {}), "", { bundleName: "com.example.educationapplication", moduleName: "entry", pagePath: "pages/NewsPage", pageFullPath: "entry/src/main/ets/pages/NewsPage", integratedHsp: "false", moduleType: "followWithHap" });

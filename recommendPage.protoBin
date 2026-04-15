@@ -1,0 +1,325 @@
+if (!("finalizeConstruction" in ViewPU.prototype)) {
+    Reflect.set(ViewPU.prototype, "finalizeConstruction", () => { });
+}
+interface FinishPage_Params {
+    sampleData?: Array<StatItem>;
+    showChart?: boolean;
+    maxValue?: number;
+    chartHeight?: number;
+    chartWidth?: number;
+    isPageActive?: boolean;
+}
+import promptAction from "@ohos:promptAction";
+import router from "@ohos:router";
+import http from "@ohos:net.http";
+import type common from "@ohos:app.ability.common";
+import dataPreferences from "@ohos:data.preferences";
+interface StatItem {
+    name: string;
+    value: number;
+}
+interface TaskItem {
+    title: string;
+    gpa: number;
+}
+interface GoalDailyProgress {
+    goal_id: number;
+    goal_content: string;
+    tasks: TaskItem[];
+}
+class FinishPage extends ViewPU {
+    constructor(parent, params, __localStorage, elmtId = -1, paramsLambda = undefined, extraInfo) {
+        super(parent, __localStorage, elmtId, extraInfo);
+        if (typeof paramsLambda === "function") {
+            this.paramsGenerator_ = paramsLambda;
+        }
+        this.__sampleData = new ObservedPropertyObjectPU([], this, "sampleData");
+        this.__showChart = new ObservedPropertySimplePU(false, this, "showChart");
+        this.maxValue = 4.0;
+        this.chartHeight = 220;
+        this.chartWidth = 320;
+        this.isPageActive = true;
+        this.setInitiallyProvidedValue(params);
+        this.finalizeConstruction();
+    }
+    setInitiallyProvidedValue(params: FinishPage_Params) {
+        if (params.sampleData !== undefined) {
+            this.sampleData = params.sampleData;
+        }
+        if (params.showChart !== undefined) {
+            this.showChart = params.showChart;
+        }
+        if (params.maxValue !== undefined) {
+            this.maxValue = params.maxValue;
+        }
+        if (params.chartHeight !== undefined) {
+            this.chartHeight = params.chartHeight;
+        }
+        if (params.chartWidth !== undefined) {
+            this.chartWidth = params.chartWidth;
+        }
+        if (params.isPageActive !== undefined) {
+            this.isPageActive = params.isPageActive;
+        }
+    }
+    updateStateVars(params: FinishPage_Params) {
+    }
+    purgeVariableDependenciesOnElmtId(rmElmtId) {
+        this.__sampleData.purgeDependencyOnElmtId(rmElmtId);
+        this.__showChart.purgeDependencyOnElmtId(rmElmtId);
+    }
+    aboutToBeDeleted() {
+        this.__sampleData.aboutToBeDeleted();
+        this.__showChart.aboutToBeDeleted();
+        SubscriberManager.Get().delete(this.id__());
+        this.aboutToBeDeletedInternal();
+    }
+    private __sampleData: ObservedPropertyObjectPU<Array<StatItem>>;
+    get sampleData() {
+        return this.__sampleData.get();
+    }
+    set sampleData(newValue: Array<StatItem>) {
+        this.__sampleData.set(newValue);
+    }
+    private __showChart: ObservedPropertySimplePU<boolean>;
+    get showChart() {
+        return this.__showChart.get();
+    }
+    set showChart(newValue: boolean) {
+        this.__showChart.set(newValue);
+    }
+    private maxValue: number;
+    private chartHeight: number;
+    private chartWidth: number;
+    private isPageActive: boolean;
+    onPageShow() {
+        this.isPageActive = true;
+        this.loadProgressFromBackend();
+    }
+    onPageHide() {
+        this.isPageActive = false;
+    }
+    truncateText(text: string, maxLen: number = 5): string {
+        if (!text)
+            return "";
+        return text.length > maxLen ? text.substring(0, maxLen) + "..." : text;
+    }
+    // 横向线条逻辑
+    generatePath(): string {
+        if (this.sampleData.length === 0)
+            return '';
+        const rowHeight = this.chartHeight / this.sampleData.length;
+        let path = '';
+        this.sampleData.forEach((item, idx) => {
+            // y 是纵向位置（固定行高），x 是根据 GPA 算的横向长度
+            const y = idx * rowHeight + rowHeight / 2;
+            const x = (item.value / this.maxValue) * this.chartWidth;
+            path += `M0 ${y} L${x} ${y} `;
+        });
+        return path.trim();
+    }
+    async loadProgressFromBackend() {
+        const ctx = getContext() as common.UIAbilityContext;
+        const pref = await dataPreferences.getPreferences(ctx, "user_info");
+        const token = pref.getSync("token", "") as string;
+        if (!token) {
+            promptAction.showToast({ message: "请先登录" });
+            return;
+        }
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = now.getMonth() + 1;
+        const day = now.getDate();
+        const baseUrl = "https://designcompetition-production.up.railway.app/api";
+        const url = `${baseUrl}/user/goals/daily_progress?year=${year}&month=${month}&day=${day}`;
+        let httpRequest = http.createHttp();
+        try {
+            const res = await httpRequest.request(url, {
+                method: http.RequestMethod.GET,
+                header: {
+                    "Authorization": `Bearer ${token}`,
+                    "Content-Type": "application/json"
+                }
+            });
+            if (!this.isPageActive || res.responseCode !== 200)
+                return;
+            const resp = JSON.parse(res.result as string) as GoalDailyProgress[];
+            let allTasks: TaskItem[] = [];
+            resp.forEach(goal => {
+                allTasks = allTasks.concat(goal.tasks);
+            });
+            this.sampleData = allTasks.map((t): StatItem => ({
+                name: t.title,
+                value: t.gpa
+            }));
+            this.showChart = true;
+        }
+        catch (err) {
+            console.error("加载失败", err);
+        }
+        finally {
+            httpRequest.destroy();
+        }
+    }
+    initialRender() {
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create();
+            Column.debugLine("entry/src/main/ets/pages/FinishPage.ets(117:5)", "entry");
+            Column.expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM]);
+            Column.width('100%');
+            Column.height('100%');
+            Column.backgroundImage({ "id": 16777257, "type": 20000, params: [], "bundleName": "com.example.educationapplication", "moduleName": "entry" });
+            Column.backgroundImageSize(ImageSize.Cover);
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Row.create();
+            Row.debugLine("entry/src/main/ets/pages/FinishPage.ets(118:7)", "entry");
+            Row.width('100%');
+            Row.padding(12);
+            Row.justifyContent(FlexAlign.Start);
+        }, Row);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Image.create({ "id": 16777253, "type": 20000, params: [], "bundleName": "com.example.educationapplication", "moduleName": "entry" });
+            Image.debugLine("entry/src/main/ets/pages/FinishPage.ets(119:9)", "entry");
+            Image.width(24);
+            Image.height(24);
+            Image.onClick(() => router.back());
+            Image.margin({ right: 20 });
+        }, Image);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create("完成度");
+            Text.debugLine("entry/src/main/ets/pages/FinishPage.ets(125:9)", "entry");
+            Text.fontSize(24);
+            Text.fontStyle(FontStyle.Italic);
+        }, Text);
+        Text.pop();
+        Row.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            If.create();
+            if (this.showChart) {
+                this.ifElseBranchUpdateFunction(0, () => {
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Column.create();
+                        Column.debugLine("entry/src/main/ets/pages/FinishPage.ets(134:9)", "entry");
+                        Column.width('100%');
+                        Column.padding(20);
+                        Column.backgroundColor('#ffe5f5f7');
+                        Column.borderRadius(12);
+                        Column.height(500);
+                        Column.margin({ top: 20 });
+                    }, Column);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Text.create("任务 GPA 横向图");
+                        Text.debugLine("entry/src/main/ets/pages/FinishPage.ets(135:11)", "entry");
+                        Text.fontSize(18);
+                        Text.fontWeight(FontWeight.Bold);
+                        Text.margin({ bottom: 10 });
+                    }, Text);
+                    Text.pop();
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        // 🔥 改用绝对定位（Stack），坐标绝对不会错
+                        Stack.create();
+                        Stack.debugLine("entry/src/main/ets/pages/FinishPage.ets(141:11)", "entry");
+                        // 🔥 改用绝对定位（Stack），坐标绝对不会错
+                        Stack.width(this.chartWidth + 40);
+                        // 🔥 改用绝对定位（Stack），坐标绝对不会错
+                        Stack.height(this.chartHeight + 20);
+                    }, Stack);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        // 1️⃣ 横坐标（0~4）→ 最顶部，不会跑
+                        Row.create();
+                        Row.debugLine("entry/src/main/ets/pages/FinishPage.ets(143:13)", "entry");
+                        // 1️⃣ 横坐标（0~4）→ 最顶部，不会跑
+                        Row.width(this.chartWidth);
+                        // 1️⃣ 横坐标（0~4）→ 最顶部，不会跑
+                        Row.position({ x: 40, y: 0 });
+                    }, Row);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        ForEach.create();
+                        const forEachItemGenFunction = _item => {
+                            const v = _item;
+                            this.observeComponentCreation2((elmtId, isInitialRender) => {
+                                Text.create(v.toFixed(1));
+                                Text.debugLine("entry/src/main/ets/pages/FinishPage.ets(145:17)", "entry");
+                                Text.fontSize(14);
+                                Text.flexGrow(1);
+                                Text.textAlign(TextAlign.Center);
+                            }, Text);
+                            Text.pop();
+                        };
+                        this.forEachUpdateFunction(elmtId, [0.0, 1.0, 2.0, 3.0, 4.0], forEachItemGenFunction);
+                    }, ForEach);
+                    ForEach.pop();
+                    // 1️⃣ 横坐标（0~4）→ 最顶部，不会跑
+                    Row.pop();
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        // 2️⃣ 任务名 → 自动垂直排列，不重叠、不叠加
+                        Column.create();
+                        Column.debugLine("entry/src/main/ets/pages/FinishPage.ets(155:13)", "entry");
+                        // 2️⃣ 任务名 → 自动垂直排列，不重叠、不叠加
+                        Column.width(50);
+                        // 2️⃣ 任务名 → 自动垂直排列，不重叠、不叠加
+                        Column.height(this.chartHeight);
+                        // 2️⃣ 任务名 → 自动垂直排列，不重叠、不叠加
+                        Column.position({ x: 0, y: 0 });
+                    }, Column);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        ForEach.create();
+                        const forEachItemGenFunction = _item => {
+                            const item = _item;
+                            this.observeComponentCreation2((elmtId, isInitialRender) => {
+                                Text.create(this.truncateText(item.name));
+                                Text.debugLine("entry/src/main/ets/pages/FinishPage.ets(157:17)", "entry");
+                                Text.fontSize(12);
+                                Text.height(this.chartHeight / this.sampleData.length);
+                                Text.textAlign(TextAlign.End);
+                                Text.margin({ right: 8 });
+                                Text.onClick(() => promptAction.showToast({ message: item.name }));
+                            }, Text);
+                            Text.pop();
+                        };
+                        this.forEachUpdateFunction(elmtId, this.sampleData, forEachItemGenFunction);
+                    }, ForEach);
+                    ForEach.pop();
+                    // 2️⃣ 任务名 → 自动垂直排列，不重叠、不叠加
+                    Column.pop();
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        // 3️⃣ 线条 → 完全和任务名对齐
+                        Path.create();
+                        Path.debugLine("entry/src/main/ets/pages/FinishPage.ets(170:13)", "entry");
+                        // 3️⃣ 线条 → 完全和任务名对齐
+                        Path.width(this.chartWidth);
+                        // 3️⃣ 线条 → 完全和任务名对齐
+                        Path.height(this.chartHeight);
+                        // 3️⃣ 线条 → 完全和任务名对齐
+                        Path.commands(this.generatePath());
+                        // 3️⃣ 线条 → 完全和任务名对齐
+                        Path.stroke(Color.Blue);
+                        // 3️⃣ 线条 → 完全和任务名对齐
+                        Path.strokeWidth(3);
+                        // 3️⃣ 线条 → 完全和任务名对齐
+                        Path.fill(Color.Transparent);
+                        // 3️⃣ 线条 → 完全和任务名对齐
+                        Path.position({ x: 40, y: 0 });
+                    }, Path);
+                    // 🔥 改用绝对定位（Stack），坐标绝对不会错
+                    Stack.pop();
+                    Column.pop();
+                });
+            }
+            else {
+                this.ifElseBranchUpdateFunction(1, () => {
+                });
+            }
+        }, If);
+        If.pop();
+        Column.pop();
+    }
+    rerender() {
+        this.updateDirtyElements();
+    }
+    static getEntryName(): string {
+        return "FinishPage";
+    }
+}
+registerNamedRoute(() => new FinishPage(undefined, {}), "", { bundleName: "com.example.educationapplication", moduleName: "entry", pagePath: "pages/FinishPage", pageFullPath: "entry/src/main/ets/pages/FinishPage", integratedHsp: "false", moduleType: "followWithHap" });

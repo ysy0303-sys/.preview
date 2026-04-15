@@ -1,0 +1,683 @@
+if (!("finalizeConstruction" in ViewPU.prototype)) {
+    Reflect.set(ViewPU.prototype, "finalizeConstruction", () => { });
+}
+interface RecommendPage_Params {
+    recommendList?: RecommendItem[];
+    currentTab?: TabType;
+    isLoading?: boolean;
+}
+import promptAction from "@ohos:promptAction";
+import router from "@ohos:router";
+import http from "@ohos:net.http";
+import type common from "@ohos:app.ability.common";
+import dataPreferences from "@ohos:data.preferences";
+// 与 Index 保持一致的类型
+type TabType = 'home' | 'plan' | 'recommend' | 'message' | 'mine';
+// 推荐项的数据模型
+interface RecommendItem {
+    id: string; // 唯一标识
+    title: string; // 标题
+    link: string; // 链接地址
+}
+// 后端返回的单条推荐
+interface BackendRecommendation {
+    id: string;
+    title: string;
+    url: string; // 后端是 url 不是 link
+}
+// 后端统一包裹格式
+interface ReResponse {
+    code: number;
+    msg: string;
+    data: BackendRecommendation[];
+}
+class RecommendPage extends ViewPU {
+    constructor(parent, params, __localStorage, elmtId = -1, paramsLambda = undefined, extraInfo) {
+        super(parent, __localStorage, elmtId, extraInfo);
+        if (typeof paramsLambda === "function") {
+            this.paramsGenerator_ = paramsLambda;
+        }
+        this.__recommendList = new ObservedPropertyObjectPU([], this, "recommendList");
+        this.__currentTab = new ObservedPropertySimplePU('recommend', this, "currentTab");
+        this.__isLoading = new ObservedPropertySimplePU(false, this, "isLoading");
+        this.setInitiallyProvidedValue(params);
+        this.finalizeConstruction();
+    }
+    setInitiallyProvidedValue(params: RecommendPage_Params) {
+        if (params.recommendList !== undefined) {
+            this.recommendList = params.recommendList;
+        }
+        if (params.currentTab !== undefined) {
+            this.currentTab = params.currentTab;
+        }
+        if (params.isLoading !== undefined) {
+            this.isLoading = params.isLoading;
+        }
+    }
+    updateStateVars(params: RecommendPage_Params) {
+    }
+    purgeVariableDependenciesOnElmtId(rmElmtId) {
+        this.__recommendList.purgeDependencyOnElmtId(rmElmtId);
+        this.__currentTab.purgeDependencyOnElmtId(rmElmtId);
+        this.__isLoading.purgeDependencyOnElmtId(rmElmtId);
+    }
+    aboutToBeDeleted() {
+        this.__recommendList.aboutToBeDeleted();
+        this.__currentTab.aboutToBeDeleted();
+        this.__isLoading.aboutToBeDeleted();
+        SubscriberManager.Get().delete(this.id__());
+        this.aboutToBeDeletedInternal();
+    }
+    // 推荐数据列表
+    private __recommendList: ObservedPropertyObjectPU<RecommendItem[]>;
+    get recommendList() {
+        return this.__recommendList.get();
+    }
+    set recommendList(newValue: RecommendItem[]) {
+        this.__recommendList.set(newValue);
+    }
+    // 底部导航当前选中状态
+    private __currentTab: ObservedPropertySimplePU<TabType>;
+    get currentTab() {
+        return this.__currentTab.get();
+    }
+    set currentTab(newValue: TabType) {
+        this.__currentTab.set(newValue);
+    }
+    // 加载状态
+    private __isLoading: ObservedPropertySimplePU<boolean>;
+    get isLoading() {
+        return this.__isLoading.get();
+    }
+    set isLoading(newValue: boolean) {
+        this.__isLoading.set(newValue);
+    }
+    initialRender() {
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create();
+            Column.debugLine("entry/src/main/ets/pages/recommendPage.ets(43:5)", "entry");
+            Column.width('100%');
+            Column.height('100%');
+            Column.backgroundImage({ "id": 16777221, "type": 20000, params: [], "bundleName": "com.example.educationapplication", "moduleName": "entry" });
+            Column.backgroundImageSize(ImageSize.Cover);
+            Column.expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP]);
+        }, Column);
+        // 标题栏
+        this.buildTitleBar.bind(this)();
+        // 推荐列表
+        this.buildRecommendList.bind(this)();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            If.create();
+            // 加载更多提示
+            if (this.isLoading) {
+                this.ifElseBranchUpdateFunction(0, () => {
+                    this.buildLoadingIndicator.bind(this)();
+                });
+            }
+            // 底部导航
+            else {
+                this.ifElseBranchUpdateFunction(1, () => {
+                });
+            }
+        }, If);
+        If.pop();
+        // 底部导航
+        this.buildBottomNav.bind(this)();
+        Column.pop();
+    }
+    // 构建标题栏
+    buildTitleBar(parent = null) {
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Row.create();
+            Row.debugLine("entry/src/main/ets/pages/recommendPage.ets(68:5)", "entry");
+            Row.width('100%');
+            Row.padding({ left: 20, right: 20, top: 12, bottom: 12 });
+        }, Row);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            // 返回按钮
+            Image.create({ "id": 16777262, "type": 20000, params: [], "bundleName": "com.example.educationapplication", "moduleName": "entry" });
+            Image.debugLine("entry/src/main/ets/pages/recommendPage.ets(70:7)", "entry");
+            // 返回按钮
+            Image.height(50);
+            // 返回按钮
+            Image.width(50);
+            // 返回按钮
+            Image.onClick(() => {
+                router.pushUrl({ url: 'pages/NewsPage' });
+            });
+        }, Image);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            // 标题
+            Text.create('为你推荐');
+            Text.debugLine("entry/src/main/ets/pages/recommendPage.ets(78:7)", "entry");
+            // 标题
+            Text.fontSize(26);
+            // 标题
+            Text.fontWeight(FontWeight.Bold);
+            // 标题
+            Text.fontColor('#FFFFFF');
+            // 标题
+            Text.textAlign(TextAlign.Center);
+            // 标题
+            Text.margin({ left: 12 });
+        }, Text);
+        // 标题
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Blank.create();
+            Blank.debugLine("entry/src/main/ets/pages/recommendPage.ets(85:7)", "entry");
+        }, Blank);
+        Blank.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            // 刷新按钮
+            Button.createWithChild({ type: ButtonType.Normal });
+            Button.debugLine("entry/src/main/ets/pages/recommendPage.ets(88:7)", "entry");
+            // 刷新按钮
+            Button.backgroundColor('rgba(255, 255, 255, 0.2)');
+            // 刷新按钮
+            Button.width(44);
+            // 刷新按钮
+            Button.height(44);
+            // 刷新按钮
+            Button.borderRadius(22);
+            // 刷新按钮
+            Button.onClick(() => {
+                this.refreshData();
+            });
+        }, Button);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Row.create({ space: 4 });
+            Row.debugLine("entry/src/main/ets/pages/recommendPage.ets(89:9)", "entry");
+        }, Row);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create('↻');
+            Text.debugLine("entry/src/main/ets/pages/recommendPage.ets(90:11)", "entry");
+            Text.fontSize(20);
+            Text.fontColor('#FFFFFF');
+        }, Text);
+        Text.pop();
+        Row.pop();
+        // 刷新按钮
+        Button.pop();
+        Row.pop();
+    }
+    // 构建推荐列表
+    buildRecommendList(parent = null) {
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            List.create();
+            List.debugLine("entry/src/main/ets/pages/recommendPage.ets(110:5)", "entry");
+            List.width('100%');
+            List.layoutWeight(1);
+            List.listDirection(Axis.Vertical);
+            List.scrollBar(BarState.Off);
+            List.margin({ left: 16, right: 16 });
+            List.onReachEnd(() => {
+                this.loadMoreData();
+            });
+        }, List);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            ForEach.create();
+            const forEachItemGenFunction = (_item, index: number) => {
+                const item = _item;
+                {
+                    const itemCreation = (elmtId, isInitialRender) => {
+                        ViewStackProcessor.StartGetAccessRecordingFor(elmtId);
+                        ListItem.create(deepRenderFunction, true);
+                        if (!isInitialRender) {
+                            ListItem.pop();
+                        }
+                        ViewStackProcessor.StopGetAccessRecording();
+                    };
+                    const itemCreation2 = (elmtId, isInitialRender) => {
+                        ListItem.create(deepRenderFunction, true);
+                        ListItem.debugLine("entry/src/main/ets/pages/recommendPage.ets(112:9)", "entry");
+                    };
+                    const deepRenderFunction = (elmtId, isInitialRender) => {
+                        itemCreation(elmtId, isInitialRender);
+                        this.buildRecommendCard.bind(this)(item, index);
+                        ListItem.pop();
+                    };
+                    this.observeComponentCreation2(itemCreation2, ListItem);
+                    ListItem.pop();
+                }
+            };
+            this.forEachUpdateFunction(elmtId, this.recommendList, forEachItemGenFunction, (item: RecommendItem) => item.id, true, false);
+        }, ForEach);
+        ForEach.pop();
+        List.pop();
+    }
+    // 构建底部导航
+    buildBottomNav(parent = null) {
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Row.create();
+            Row.debugLine("entry/src/main/ets/pages/recommendPage.ets(130:5)", "entry");
+            Row.width('100%');
+            Row.height(60);
+            Row.backgroundColor(Color.White);
+            Row.justifyContent(FlexAlign.Center);
+        }, Row);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create({ space: 4 });
+            Column.debugLine("entry/src/main/ets/pages/recommendPage.ets(131:7)", "entry");
+            Column.layoutWeight(1);
+            Column.onClick(() => {
+                this.currentTab = 'home';
+                try {
+                    router.pushUrl({ url: 'pages/Index' });
+                }
+                catch (e) {
+                    console.error('首页跳转失败:', e);
+                }
+            });
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create("🏠");
+            Text.debugLine("entry/src/main/ets/pages/recommendPage.ets(132:9)", "entry");
+            Text.fontSize(24);
+            Text.fontColor(this.currentTab === 'home' ? '#2563EB' : '#6B7280');
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create("首页");
+            Text.debugLine("entry/src/main/ets/pages/recommendPage.ets(133:9)", "entry");
+            Text.fontColor(this.currentTab === 'home' ? '#2563EB' : '#6B7280');
+            Text.fontSize(14);
+        }, Text);
+        Text.pop();
+        Column.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create({ space: 4 });
+            Column.debugLine("entry/src/main/ets/pages/recommendPage.ets(143:7)", "entry");
+            Column.layoutWeight(1);
+            Column.onClick(() => {
+                this.currentTab = 'plan';
+                try {
+                    router.pushUrl({ url: 'pages/GoalsPage' });
+                }
+                catch (e) {
+                    console.error('记录页跳转失败:', e);
+                }
+            });
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create("📝");
+            Text.debugLine("entry/src/main/ets/pages/recommendPage.ets(144:9)", "entry");
+            Text.fontSize(24);
+            Text.fontColor(this.currentTab === 'plan' ? '#2563EB' : '#6B7280');
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create("待办");
+            Text.debugLine("entry/src/main/ets/pages/recommendPage.ets(145:9)", "entry");
+            Text.fontColor(this.currentTab === 'plan' ? '#2563EB' : '#6B7280');
+            Text.fontSize(14);
+        }, Text);
+        Text.pop();
+        Column.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create({ space: 4 });
+            Column.debugLine("entry/src/main/ets/pages/recommendPage.ets(155:7)", "entry");
+            Column.layoutWeight(1);
+            Column.onClick(() => {
+                this.currentTab = 'recommend';
+            });
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create("📅");
+            Text.debugLine("entry/src/main/ets/pages/recommendPage.ets(156:9)", "entry");
+            Text.fontSize(24);
+            Text.fontColor(this.currentTab === 'recommend' ? '#2563EB' : '#6B7280');
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create("推荐");
+            Text.debugLine("entry/src/main/ets/pages/recommendPage.ets(157:9)", "entry");
+            Text.fontColor(this.currentTab === 'recommend' ? '#2563EB' : '#6B7280');
+            Text.fontSize(14);
+        }, Text);
+        Text.pop();
+        Column.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create({ space: 4 });
+            Column.debugLine("entry/src/main/ets/pages/recommendPage.ets(162:7)", "entry");
+            Column.layoutWeight(1);
+            Column.onClick(() => {
+                this.currentTab = 'message';
+                router.pushUrl({ url: 'pages/MessagePage' });
+            });
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create("✉️");
+            Text.debugLine("entry/src/main/ets/pages/recommendPage.ets(163:9)", "entry");
+            Text.fontSize(24);
+            Text.fontColor(this.currentTab === 'message' ? '#2563EB' : '#6B7280');
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create("消息");
+            Text.debugLine("entry/src/main/ets/pages/recommendPage.ets(164:9)", "entry");
+            Text.fontColor(this.currentTab === 'message' ? '#2563EB' : '#6B7280');
+            Text.fontSize(14);
+        }, Text);
+        Text.pop();
+        Column.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create({ space: 4 });
+            Column.debugLine("entry/src/main/ets/pages/recommendPage.ets(170:7)", "entry");
+            Column.layoutWeight(1);
+            Column.onClick(() => {
+                this.currentTab = 'mine';
+                try {
+                    router.pushUrl({ url: 'pages/myPage' });
+                }
+                catch (e) {
+                    console.error('我的页跳转失败:', e);
+                }
+            });
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create("👤");
+            Text.debugLine("entry/src/main/ets/pages/recommendPage.ets(171:9)", "entry");
+            Text.fontSize(24);
+            Text.fontColor(this.currentTab === 'mine' ? '#2563EB' : '#6B7280');
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create("我的");
+            Text.debugLine("entry/src/main/ets/pages/recommendPage.ets(172:9)", "entry");
+            Text.fontColor(this.currentTab === 'mine' ? '#2563EB' : '#6B7280');
+            Text.fontSize(14);
+        }, Text);
+        Text.pop();
+        Column.pop();
+        Row.pop();
+    }
+    // 构建推荐卡片
+    buildRecommendCard(item: RecommendItem, index: number, parent = null) {
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create();
+            Column.debugLine("entry/src/main/ets/pages/recommendPage.ets(191:5)", "entry");
+            Column.backgroundColor('#B3FFFFFF');
+            Column.width('100%');
+            Column.borderRadius(16);
+            Column.margin({ bottom: 12 });
+            Column.shadow({ radius: 10, color: 'rgba(0,0,0,0.1)', offsetX: 0, offsetY: 4 });
+            Column.onClick(() => {
+                this.openLink(item.link);
+            });
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Row.create({ space: 16 });
+            Row.debugLine("entry/src/main/ets/pages/recommendPage.ets(192:7)", "entry");
+            Row.width('100%');
+            Row.padding(16);
+        }, Row);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            // 左侧序号
+            Column.create();
+            Column.debugLine("entry/src/main/ets/pages/recommendPage.ets(194:9)", "entry");
+            // 左侧序号
+            Column.width(40);
+            // 左侧序号
+            Column.height(40);
+            // 左侧序号
+            Column.borderRadius(20);
+            // 左侧序号
+            Column.justifyContent(FlexAlign.Center);
+            // 左侧序号
+            Column.alignItems(HorizontalAlign.Center);
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create((index + 1).toString());
+            Text.debugLine("entry/src/main/ets/pages/recommendPage.ets(195:11)", "entry");
+            Text.fontSize(22);
+            Text.fontWeight(FontWeight.Bold);
+            Text.fontColor('#ff87b9fd');
+        }, Text);
+        Text.pop();
+        // 左侧序号
+        Column.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            // 右侧内容
+            Column.create({ space: 8 });
+            Column.debugLine("entry/src/main/ets/pages/recommendPage.ets(207:9)", "entry");
+            // 右侧内容
+            Column.layoutWeight(1);
+            // 右侧内容
+            Column.alignItems(HorizontalAlign.Start);
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            // 标题
+            Text.create(item.title);
+            Text.debugLine("entry/src/main/ets/pages/recommendPage.ets(209:11)", "entry");
+            // 标题
+            Text.fontSize(18);
+            // 标题
+            Text.fontWeight(FontWeight.Medium);
+            // 标题
+            Text.fontColor('#2D3436');
+            // 标题
+            Text.maxLines(2);
+            // 标题
+            Text.textOverflow({ overflow: TextOverflow.Ellipsis });
+            // 标题
+            Text.width('100%');
+        }, Text);
+        // 标题
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            // 链接地址
+            Row.create({ space: 6 });
+            Row.debugLine("entry/src/main/ets/pages/recommendPage.ets(218:11)", "entry");
+            // 链接地址
+            Row.width('100%');
+            // 链接地址
+            Row.alignItems(VerticalAlign.Center);
+        }, Row);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create('🔗');
+            Text.debugLine("entry/src/main/ets/pages/recommendPage.ets(219:13)", "entry");
+            Text.fontSize(14);
+            Text.fontColor('#4A6FFF');
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create(this.formatLink(item.link));
+            Text.debugLine("entry/src/main/ets/pages/recommendPage.ets(223:13)", "entry");
+            Text.fontSize(14);
+            Text.fontColor('#666666');
+            Text.maxLines(1);
+            Text.textOverflow({ overflow: TextOverflow.Ellipsis });
+            Text.layoutWeight(1);
+        }, Text);
+        Text.pop();
+        // 链接地址
+        Row.pop();
+        // 右侧内容
+        Column.pop();
+        Row.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            // 底部装饰线
+            Row.create();
+            Row.debugLine("entry/src/main/ets/pages/recommendPage.ets(240:7)", "entry");
+            // 底部装饰线
+            Row.width('100%');
+            // 底部装饰线
+            Row.height(2);
+            // 底部装饰线
+            Row.linearGradient({
+                angle: 90,
+                colors: [['#4A6FFF', 0.0], ['rgba(74, 111, 255, 0)', 1.0]]
+            });
+            // 底部装饰线
+            Row.margin({ top: 8 });
+        }, Row);
+        // 底部装饰线
+        Row.pop();
+        Column.pop();
+    }
+    // 构建加载指示器
+    buildLoadingIndicator(parent = null) {
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Row.create();
+            Row.debugLine("entry/src/main/ets/pages/recommendPage.ets(262:5)", "entry");
+            Row.width('100%');
+            Row.height(60);
+            Row.justifyContent(FlexAlign.Center);
+            Row.backgroundColor('rgba(0,0,0,0.3)');
+        }, Row);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            LoadingProgress.create();
+            LoadingProgress.debugLine("entry/src/main/ets/pages/recommendPage.ets(263:7)", "entry");
+            LoadingProgress.width(30);
+            LoadingProgress.height(30);
+            LoadingProgress.color('#FFFFFF');
+        }, LoadingProgress);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create('正在加载更多推荐...');
+            Text.debugLine("entry/src/main/ets/pages/recommendPage.ets(267:7)", "entry");
+            Text.fontSize(14);
+            Text.fontColor('#FFFFFF');
+            Text.margin({ left: 8 });
+        }, Text);
+        Text.pop();
+        Row.pop();
+    }
+    // 格式化链接显示（已加空值防护）
+    private formatLink(link: string): string {
+        if (!link)
+            return "无链接";
+        if (link.startsWith('https://')) {
+            const withoutHttps = link.substring(8);
+            const slashIndex = withoutHttps.indexOf('/');
+            if (slashIndex > 0) {
+                let domain = withoutHttps.substring(0, slashIndex);
+                domain = domain.replace('www.', '');
+                return domain;
+            }
+            else {
+                let domain = withoutHttps.replace('www.', '');
+                return domain;
+            }
+        }
+        else if (link.startsWith('http://')) {
+            const withoutHttp = link.substring(7);
+            const slashIndex = withoutHttp.indexOf('/');
+            if (slashIndex > 0) {
+                let domain = withoutHttp.substring(0, slashIndex);
+                domain = domain.replace('www.', '');
+                return domain;
+            }
+            else {
+                let domain = withoutHttp.replace('www.', '');
+                return domain;
+            }
+        }
+        if (link.length > 30) {
+            return link.substring(0, 30) + '...';
+        }
+        return link;
+    }
+    // 打开链接
+    private openLink(link: string): void {
+        if (!link) {
+            promptAction.showToast({ message: '暂无链接', duration: 1000 });
+            return;
+        }
+        promptAction.showToast({ message: '正在打开链接...', duration: 1000 });
+        router.pushUrl({
+            url: 'pages/WebViewPage',
+            params: { url: link }
+        }).catch((err: Error) => {
+            console.error('跳转失败：', err.message);
+            promptAction.showToast({ message: '打开链接失败', duration: 1500 });
+        });
+    }
+    // 刷新数据
+    private refreshData(): void {
+        promptAction.showToast({ message: '刷新中...' });
+        this.loadRecommendations();
+    }
+    // 加载更多数据
+    private loadMoreData(): void {
+        if (this.isLoading)
+            return;
+        this.isLoading = true;
+        setTimeout(() => {
+            const newItems: RecommendItem[] = [
+                {
+                    id: (this.recommendList.length + 1).toString(),
+                    title: '鸿蒙应用安全最佳实践',
+                    link: 'https://developer.harmonyos.com/cn/docs/documentation/doc-guides/security-introduction-0000001821001789'
+                },
+                {
+                    id: (this.recommendList.length + 2).toString(),
+                    title: '鸿蒙应用国际化开发指南',
+                    link: 'https://developer.harmonyos.com/cn/docs/documentation/doc-guides/i18n-introduction-0000001821001889'
+                }
+            ];
+            this.recommendList = [...this.recommendList, ...newItems];
+            this.isLoading = false;
+        }, 1000);
+    }
+    // 旧接口示例保留
+    private fetchRecommendData(): void {
+        console.log('从后端获取推荐数据');
+        const newItem: RecommendItem = {
+            id: Date.now().toString(),
+            title: '🔥 热门推荐：鸿蒙应用开发新特性',
+            link: 'https://developer.harmonyos.com/cn/docs/documentation/doc-guides/new-features-2024'
+        };
+        this.recommendList = [newItem, ...this.recommendList];
+    }
+    // 从后端拉取推荐列表（修复：item.url）
+    async loadRecommendations() {
+        const context = getContext() as common.UIAbilityContext;
+        const pref = await dataPreferences.getPreferences(context, 'user_info');
+        const token = pref.getSync('token', '') as string;
+        if (!token) {
+            console.error("【推荐页】未登录，无token");
+            return;
+        }
+        let httpRequest = http.createHttp();
+        try {
+            console.log("【推荐页】开始请求接口");
+            const res = await httpRequest.request("https://designcompetition-production.up.railway.app/api/recommendation", {
+                method: http.RequestMethod.GET,
+                header: {
+                    "Authorization": `Bearer ${token}`,
+                    "Content-Type": "application/json"
+                }
+            });
+            console.log("【推荐页】状态码：", res.responseCode);
+            console.log("【推荐页】返回数据：", res.result);
+            if (res.responseCode === 200) {
+                const result = JSON.parse(res.result as string) as ReResponse;
+                if (result.code === 200 && result.data) {
+                    console.log("【推荐页】解析成功：", result.data);
+                    this.recommendList = result.data.map(item => ({
+                        id: item.id,
+                        title: item.title,
+                        link: item.url || ""
+                    } as RecommendItem));
+                }
+            }
+        }
+        catch (err) {
+            console.error("【推荐页】请求失败详情：", JSON.stringify(err));
+        }
+        finally {
+            httpRequest.destroy();
+        }
+    }
+    async aboutToAppear() {
+        await this.loadRecommendations();
+    }
+    rerender() {
+        this.updateDirtyElements();
+    }
+    static getEntryName(): string {
+        return "RecommendPage";
+    }
+}
+registerNamedRoute(() => new RecommendPage(undefined, {}), "", { bundleName: "com.example.educationapplication", moduleName: "entry", pagePath: "pages/recommendPage", pageFullPath: "entry/src/main/ets/pages/recommendPage", integratedHsp: "false", moduleType: "followWithHap" });

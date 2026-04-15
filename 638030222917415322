@@ -1,0 +1,302 @@
+if (!("finalizeConstruction" in ViewPU.prototype)) {
+    Reflect.set(ViewPU.prototype, "finalizeConstruction", () => { });
+}
+interface TimePage_Params {
+    targetDate?: Date;
+    remainingDays?: number;
+    currentTab?: TabType;
+    elapsedTime?: number;
+    isRunning?: boolean;
+    timerId?: number;
+}
+import router from "@ohos:router";
+// 1. 先定义所有类型
+type TabType = 'home' | 'record' | 'plan' | 'mine';
+class TimePage extends ViewPU {
+    constructor(parent, params, __localStorage, elmtId = -1, paramsLambda = undefined, extraInfo) {
+        super(parent, __localStorage, elmtId, extraInfo);
+        if (typeof paramsLambda === "function") {
+            this.paramsGenerator_ = paramsLambda;
+        }
+        this.targetDate = new Date('2026-12-31');
+        this.__remainingDays = new ObservedPropertySimplePU(0, this, "remainingDays");
+        this.__currentTab = new ObservedPropertySimplePU('record', this, "currentTab");
+        this.__elapsedTime = new ObservedPropertySimplePU(0, this, "elapsedTime");
+        this.__isRunning = new ObservedPropertySimplePU(false, this, "isRunning");
+        this.timerId = -1;
+        this.setInitiallyProvidedValue(params);
+        this.finalizeConstruction();
+    }
+    setInitiallyProvidedValue(params: TimePage_Params) {
+        if (params.targetDate !== undefined) {
+            this.targetDate = params.targetDate;
+        }
+        if (params.remainingDays !== undefined) {
+            this.remainingDays = params.remainingDays;
+        }
+        if (params.currentTab !== undefined) {
+            this.currentTab = params.currentTab;
+        }
+        if (params.elapsedTime !== undefined) {
+            this.elapsedTime = params.elapsedTime;
+        }
+        if (params.isRunning !== undefined) {
+            this.isRunning = params.isRunning;
+        }
+        if (params.timerId !== undefined) {
+            this.timerId = params.timerId;
+        }
+    }
+    updateStateVars(params: TimePage_Params) {
+    }
+    purgeVariableDependenciesOnElmtId(rmElmtId) {
+        this.__remainingDays.purgeDependencyOnElmtId(rmElmtId);
+        this.__currentTab.purgeDependencyOnElmtId(rmElmtId);
+        this.__elapsedTime.purgeDependencyOnElmtId(rmElmtId);
+        this.__isRunning.purgeDependencyOnElmtId(rmElmtId);
+    }
+    aboutToBeDeleted() {
+        this.__remainingDays.aboutToBeDeleted();
+        this.__currentTab.aboutToBeDeleted();
+        this.__elapsedTime.aboutToBeDeleted();
+        this.__isRunning.aboutToBeDeleted();
+        SubscriberManager.Get().delete(this.id__());
+        this.aboutToBeDeletedInternal();
+    }
+    // 今年倒计时：假设目标日期是 2026-12-31，你可以改
+    private targetDate: Date;
+    private __remainingDays: ObservedPropertySimplePU<number>;
+    get remainingDays() {
+        return this.__remainingDays.get();
+    }
+    set remainingDays(newValue: number) {
+        this.__remainingDays.set(newValue);
+    }
+    private __currentTab: ObservedPropertySimplePU<TabType>;
+    get currentTab() {
+        return this.__currentTab.get();
+    }
+    set currentTab(newValue: TabType) {
+        this.__currentTab.set(newValue);
+    }
+    private __elapsedTime: ObservedPropertySimplePU<number>;
+    get elapsedTime() {
+        return this.__elapsedTime.get();
+    }
+    set elapsedTime(newValue: number) {
+        this.__elapsedTime.set(newValue);
+    }
+    private __isRunning: ObservedPropertySimplePU<boolean>;
+    get isRunning() {
+        return this.__isRunning.get();
+    }
+    set isRunning(newValue: boolean) {
+        this.__isRunning.set(newValue);
+    }
+    private timerId: number;
+    aboutToAppear() {
+        // 计算今年剩余天数
+        const now = new Date();
+        const diffTime = this.targetDate.getTime() - now.getTime();
+        this.remainingDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    }
+    formatTime(seconds: number): string {
+        const min = Math.floor(seconds / 60);
+        const sec = seconds % 60;
+        return `${min.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
+    }
+    startTimer() {
+        if (this.isRunning)
+            return;
+        this.isRunning = true;
+        this.timerId = setInterval(() => {
+            this.elapsedTime += 1;
+        }, 1000);
+    }
+    pauseTimer() {
+        if (!this.isRunning)
+            return;
+        this.isRunning = false;
+        clearInterval(this.timerId);
+        this.timerId = -1;
+    }
+    resetTimer() {
+        this.pauseTimer();
+        this.elapsedTime = 0;
+    }
+    initialRender() {
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create();
+            Column.debugLine("entry/src/main/ets/pages/TimePage.ets(49:5)", "entry");
+            Column.layoutWeight(1);
+            Column.width('100%');
+            Column.height('100%');
+            Column.expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM, SafeAreaEdge.TOP]);
+            Column.backgroundImage({ "id": 16777225, "type": 20000, params: [], "bundleName": "com.example.educationapplication", "moduleName": "entry" });
+            Column.backgroundImageSize(ImageSize.Cover);
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create();
+            Column.debugLine("entry/src/main/ets/pages/TimePage.ets(50:6)", "entry");
+            Column.width('100%');
+            Column.layoutWeight(1);
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Row.create();
+            Row.debugLine("entry/src/main/ets/pages/TimePage.ets(51:8)", "entry");
+            Row.width('100%');
+            Row.padding({ right: 20 });
+        }, Row);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            // 返回按钮（修复后：使用 Icon 组件）
+            Image.create({ "id": 16777232, "type": 20000, params: [], "bundleName": "com.example.educationapplication", "moduleName": "entry" });
+            Image.debugLine("entry/src/main/ets/pages/TimePage.ets(53:10)", "entry");
+            // 返回按钮（修复后：使用 Icon 组件）
+            Image.width(34);
+            // 返回按钮（修复后：使用 Icon 组件）
+            Image.onClick(() => {
+                router.back();
+            });
+        }, Image);
+        Row.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            // 1. 名言（居中，更文艺）
+            Text.create("“每个人的心里都有一团火，路过的人只看到烟。”");
+            Text.debugLine("entry/src/main/ets/pages/TimePage.ets(64:8)", "entry");
+            // 1. 名言（居中，更文艺）
+            Text.fontSize(20);
+            // 1. 名言（居中，更文艺）
+            Text.fontColor('#ff131313');
+            // 1. 名言（居中，更文艺）
+            Text.fontWeight(FontWeight.Lighter);
+            // 1. 名言（居中，更文艺）
+            Text.lineHeight(30);
+            // 1. 名言（居中，更文艺）
+            Text.width('90%');
+            // 1. 名言（居中，更文艺）
+            Text.textAlign(TextAlign.Center);
+            // 1. 名言（居中，更文艺）
+            Text.margin({ top: 80, bottom: 40 });
+        }, Text);
+        // 1. 名言（居中，更文艺）
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            // 2. 今年倒计时
+            Column.create({ space: 6 });
+            Column.debugLine("entry/src/main/ets/pages/TimePage.ets(74:8)", "entry");
+            // 2. 今年倒计时
+            Column.width('100%');
+            // 2. 今年倒计时
+            Column.alignItems(HorizontalAlign.Center);
+            // 2. 今年倒计时
+            Column.margin({ bottom: 60 });
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create("今年");
+            Text.debugLine("entry/src/main/ets/pages/TimePage.ets(75:10)", "entry");
+            Text.fontSize(17);
+            Text.fontColor('#ff656666');
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create(`还剩 ${this.remainingDays} 天`);
+            Text.debugLine("entry/src/main/ets/pages/TimePage.ets(78:10)", "entry");
+            Text.fontSize(26);
+            Text.fontColor('#ff4e4f4f');
+            Text.fontWeight(FontWeight.Medium);
+        }, Text);
+        Text.pop();
+        // 2. 今年倒计时
+        Column.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            // 3. 计时器（精致圆形，去掉丑边框）
+            Stack.create();
+            Stack.debugLine("entry/src/main/ets/pages/TimePage.ets(88:8)", "entry");
+            // 3. 计时器（精致圆形，去掉丑边框）
+            Stack.width(200);
+            // 3. 计时器（精致圆形，去掉丑边框）
+            Stack.height(200);
+            // 3. 计时器（精致圆形，去掉丑边框）
+            Stack.margin({ bottom: 60 });
+        }, Stack);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Circle.create();
+            Circle.debugLine("entry/src/main/ets/pages/TimePage.ets(90:10)", "entry");
+            Circle.width(290);
+            Circle.height(290);
+            Circle.fill('#ffcae2f9');
+        }, Circle);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Circle.create();
+            Circle.debugLine("entry/src/main/ets/pages/TimePage.ets(95:10)", "entry");
+            Circle.width(278);
+            Circle.height(278);
+            Circle.fill('#ff7595ae');
+        }, Circle);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            // 时间文字
+            Text.create(this.formatTime(this.elapsedTime));
+            Text.debugLine("entry/src/main/ets/pages/TimePage.ets(100:10)", "entry");
+            // 时间文字
+            Text.fontSize(42);
+            // 时间文字
+            Text.fontColor('#f8fafc');
+            // 时间文字
+            Text.fontWeight(FontWeight.Medium);
+            // 时间文字
+            Text.letterSpacing(2);
+        }, Text);
+        // 时间文字
+        Text.pop();
+        // 3. 计时器（精致圆形，去掉丑边框）
+        Stack.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            // 4. 控制按钮（更精致，间距更大）
+            Row.create({ space: 40 });
+            Row.debugLine("entry/src/main/ets/pages/TimePage.ets(111:8)", "entry");
+            // 4. 控制按钮（更精致，间距更大）
+            Row.width('100%');
+            // 4. 控制按钮（更精致，间距更大）
+            Row.justifyContent(FlexAlign.Center);
+        }, Row);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Button.createWithLabel(this.isRunning ? "暂停" : "开始");
+            Button.debugLine("entry/src/main/ets/pages/TimePage.ets(112:10)", "entry");
+            Button.width(100);
+            Button.height(48);
+            Button.fontSize(16);
+            Button.fontColor('#ffffff');
+            Button.backgroundColor(this.isRunning ? '#ff937070' : '#ff65867a');
+            Button.borderRadius(24);
+            Button.onClick(() => {
+                this.isRunning ? this.pauseTimer() : this.startTimer();
+            });
+        }, Button);
+        Button.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Button.createWithLabel("复原");
+            Button.debugLine("entry/src/main/ets/pages/TimePage.ets(123:10)", "entry");
+            Button.width(100);
+            Button.height(48);
+            Button.fontSize(16);
+            Button.fontColor('#ffffff');
+            Button.backgroundColor('#ff8687a5');
+            Button.borderRadius(24);
+            Button.onClick(() => {
+                this.resetTimer();
+            });
+        }, Button);
+        Button.pop();
+        // 4. 控制按钮（更精致，间距更大）
+        Row.pop();
+        Column.pop();
+        Column.pop();
+    }
+    rerender() {
+        this.updateDirtyElements();
+    }
+    static getEntryName(): string {
+        return "TimePage";
+    }
+}
+registerNamedRoute(() => new TimePage(undefined, {}), "", { bundleName: "com.example.educationapplication", moduleName: "entry", pagePath: "pages/TimePage", pageFullPath: "entry/src/main/ets/pages/TimePage", integratedHsp: "false", moduleType: "followWithHap" });

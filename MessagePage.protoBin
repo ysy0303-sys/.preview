@@ -1,0 +1,46 @@
+import type AbilityConstant from "@ohos:app.ability.AbilityConstant";
+import ConfigurationConstant from "@ohos:app.ability.ConfigurationConstant";
+import UIAbility from "@ohos:app.ability.UIAbility";
+import type Want from "@ohos:app.ability.Want";
+import hilog from "@ohos:hilog";
+import type window from "@ohos:window";
+import router from "@ohos:router";
+import type { Context } from "@ohos:abilityAccessCtrl";
+const DOMAIN = 0x0000;
+export let globalContext: EntryAbility | null = null;
+interface GlobalState {
+    token: string;
+    userId: string;
+    context: Context | null;
+}
+export const globalState: GlobalState = {
+    token: '',
+    userId: '',
+    context: null
+};
+export default class EntryAbility extends UIAbility {
+    onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): void {
+        globalContext = this;
+        // 存入 context，给页面缓存使用
+        globalState.context = this.context;
+        try {
+            this.context.getApplicationContext().setColorMode(ConfigurationConstant.ColorMode.COLOR_MODE_NOT_SET);
+        }
+        catch (err) {
+            hilog.error(DOMAIN, 'testTag', 'Failed to set colorMode.');
+        }
+    }
+    onDestroy(): void {
+        globalContext = null;
+        globalState.context = null;
+    }
+    jumpToHome() {
+        router.replaceUrl({ url: "/pages/Index" });
+    }
+    onWindowStageCreate(windowStage: window.WindowStage): void {
+        windowStage.loadContent('pages/Login', (err) => { });
+    }
+    onWindowStageDestroy(): void { }
+    onForeground(): void { }
+    onBackground(): void { }
+}

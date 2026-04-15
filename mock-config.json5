@@ -1,0 +1,504 @@
+if (!("finalizeConstruction" in ViewPU.prototype)) {
+    Reflect.set(ViewPU.prototype, "finalizeConstruction", () => { });
+}
+interface LoginPage_Params {
+    isLoginTab?: boolean;
+    username?: string;
+    password?: string;
+    confirmPwd?: string;
+    errorCount?: number;
+    isBlocked?: boolean;
+    isLoading?: boolean;
+}
+import http from "@ohos:net.http";
+import promptAction from "@ohos:promptAction";
+import router from "@ohos:router";
+import dataPreferences from "@ohos:data.preferences";
+import { globalState } from "@normalized:N&&&entry/src/main/ets/entryability/EntryAbility&";
+// ================= 1. 严格类型定义 =================
+interface UserRequest {
+    username: string;
+    password: string;
+}
+interface ApiResponse<T> {
+    code: number;
+    msg: string;
+    data: T;
+}
+interface LoginData {
+    access_token: string;
+    user_id: string;
+    token_type?: string;
+}
+interface ApiConfig {
+    baseUrl: string;
+    register: string;
+    login: string;
+}
+// ================= 2. 接口配置 =================
+const API_CONFIG: ApiConfig = {
+    baseUrl: 'https://designcompetition-production.up.railway.app/api',
+    register: '/user/register',
+    login: '/user/login'
+};
+class LoginPage extends ViewPU {
+    constructor(parent, params, __localStorage, elmtId = -1, paramsLambda = undefined, extraInfo) {
+        super(parent, __localStorage, elmtId, extraInfo);
+        if (typeof paramsLambda === "function") {
+            this.paramsGenerator_ = paramsLambda;
+        }
+        this.__isLoginTab = new ObservedPropertySimplePU(false, this, "isLoginTab");
+        this.__username = new ObservedPropertySimplePU('', this, "username");
+        this.__password = new ObservedPropertySimplePU('', this, "password");
+        this.__confirmPwd = new ObservedPropertySimplePU('', this, "confirmPwd");
+        this.__errorCount = new ObservedPropertySimplePU(0, this, "errorCount");
+        this.__isBlocked = new ObservedPropertySimplePU(false, this, "isBlocked");
+        this.__isLoading = new ObservedPropertySimplePU(false, this, "isLoading");
+        this.setInitiallyProvidedValue(params);
+        this.finalizeConstruction();
+    }
+    setInitiallyProvidedValue(params: LoginPage_Params) {
+        if (params.isLoginTab !== undefined) {
+            this.isLoginTab = params.isLoginTab;
+        }
+        if (params.username !== undefined) {
+            this.username = params.username;
+        }
+        if (params.password !== undefined) {
+            this.password = params.password;
+        }
+        if (params.confirmPwd !== undefined) {
+            this.confirmPwd = params.confirmPwd;
+        }
+        if (params.errorCount !== undefined) {
+            this.errorCount = params.errorCount;
+        }
+        if (params.isBlocked !== undefined) {
+            this.isBlocked = params.isBlocked;
+        }
+        if (params.isLoading !== undefined) {
+            this.isLoading = params.isLoading;
+        }
+    }
+    updateStateVars(params: LoginPage_Params) {
+    }
+    purgeVariableDependenciesOnElmtId(rmElmtId) {
+        this.__isLoginTab.purgeDependencyOnElmtId(rmElmtId);
+        this.__username.purgeDependencyOnElmtId(rmElmtId);
+        this.__password.purgeDependencyOnElmtId(rmElmtId);
+        this.__confirmPwd.purgeDependencyOnElmtId(rmElmtId);
+        this.__errorCount.purgeDependencyOnElmtId(rmElmtId);
+        this.__isBlocked.purgeDependencyOnElmtId(rmElmtId);
+        this.__isLoading.purgeDependencyOnElmtId(rmElmtId);
+    }
+    aboutToBeDeleted() {
+        this.__isLoginTab.aboutToBeDeleted();
+        this.__username.aboutToBeDeleted();
+        this.__password.aboutToBeDeleted();
+        this.__confirmPwd.aboutToBeDeleted();
+        this.__errorCount.aboutToBeDeleted();
+        this.__isBlocked.aboutToBeDeleted();
+        this.__isLoading.aboutToBeDeleted();
+        SubscriberManager.Get().delete(this.id__());
+        this.aboutToBeDeletedInternal();
+    }
+    private __isLoginTab: ObservedPropertySimplePU<boolean>;
+    get isLoginTab() {
+        return this.__isLoginTab.get();
+    }
+    set isLoginTab(newValue: boolean) {
+        this.__isLoginTab.set(newValue);
+    }
+    private __username: ObservedPropertySimplePU<string>;
+    get username() {
+        return this.__username.get();
+    }
+    set username(newValue: string) {
+        this.__username.set(newValue);
+    }
+    private __password: ObservedPropertySimplePU<string>;
+    get password() {
+        return this.__password.get();
+    }
+    set password(newValue: string) {
+        this.__password.set(newValue);
+    }
+    private __confirmPwd: ObservedPropertySimplePU<string>;
+    get confirmPwd() {
+        return this.__confirmPwd.get();
+    }
+    set confirmPwd(newValue: string) {
+        this.__confirmPwd.set(newValue);
+    }
+    private __errorCount: ObservedPropertySimplePU<number>;
+    get errorCount() {
+        return this.__errorCount.get();
+    }
+    set errorCount(newValue: number) {
+        this.__errorCount.set(newValue);
+    }
+    private __isBlocked: ObservedPropertySimplePU<boolean>;
+    get isBlocked() {
+        return this.__isBlocked.get();
+    }
+    set isBlocked(newValue: boolean) {
+        this.__isBlocked.set(newValue);
+    }
+    private __isLoading: ObservedPropertySimplePU<boolean>;
+    get isLoading() {
+        return this.__isLoading.get();
+    }
+    set isLoading(newValue: boolean) {
+        this.__isLoading.set(newValue);
+    }
+    initialRender() {
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Stack.create();
+            Stack.debugLine("entry/src/main/ets/pages/Login.ets(52:5)", "entry");
+            Stack.width('100%');
+            Stack.height('100%');
+        }, Stack);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Image.create({ "id": 16777267, "type": 20000, params: [], "bundleName": "com.example.educationapplication", "moduleName": "entry" });
+            Image.debugLine("entry/src/main/ets/pages/Login.ets(53:7)", "entry");
+            Image.width('100%');
+            Image.height('100%');
+            Image.objectFit(ImageFit.Cover);
+        }, Image);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Row.create();
+            Row.debugLine("entry/src/main/ets/pages/Login.ets(57:7)", "entry");
+            Row.width('100%');
+            Row.height('100%');
+            Row.backgroundColor('#00367692');
+            Row.expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM]);
+        }, Row);
+        Row.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create();
+            Column.debugLine("entry/src/main/ets/pages/Login.ets(63:7)", "entry");
+            Column.width('100%');
+            Column.height('100%');
+            Column.alignItems(HorizontalAlign.Center);
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create('欢迎来到拾光计划');
+            Text.debugLine("entry/src/main/ets/pages/Login.ets(64:9)", "entry");
+            Text.fontSize(32);
+            Text.fontWeight(FontWeight.Bold);
+            Text.fontColor('#9EB995');
+            Text.margin({ bottom: 40, top: 100 });
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            // 登录/注册选项卡
+            Row.create();
+            Row.debugLine("entry/src/main/ets/pages/Login.ets(71:9)", "entry");
+            // 登录/注册选项卡
+            Row.width('80%');
+            // 登录/注册选项卡
+            Row.margin({ bottom: 20 });
+        }, Row);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create('账号登录');
+            Text.debugLine("entry/src/main/ets/pages/Login.ets(72:11)", "entry");
+            Text.fontSize(18);
+            Text.fontWeight(this.isLoginTab ? FontWeight.Bold : FontWeight.Normal);
+            Text.fontColor(this.isLoginTab ? '#9EB995' : '#999999');
+            Text.width('50%');
+            Text.textAlign(TextAlign.Center);
+            Text.padding(10);
+            Text.onClick(() => this.switchTab(true));
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create('注册账号');
+            Text.debugLine("entry/src/main/ets/pages/Login.ets(81:11)", "entry");
+            Text.fontSize(18);
+            Text.fontWeight(!this.isLoginTab ? FontWeight.Bold : FontWeight.Normal);
+            Text.fontColor(!this.isLoginTab ? '#9EB995' : '#999999');
+            Text.width('50%');
+            Text.textAlign(TextAlign.Center);
+            Text.padding(10);
+            Text.onClick(() => this.switchTab(false));
+        }, Text);
+        Text.pop();
+        // 登录/注册选项卡
+        Row.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            // 输入表单
+            Column.create();
+            Column.debugLine("entry/src/main/ets/pages/Login.ets(94:9)", "entry");
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            TextInput.create({ text: this.username, placeholder: '请输入您的账号' });
+            TextInput.debugLine("entry/src/main/ets/pages/Login.ets(95:11)", "entry");
+            TextInput.width('80%');
+            TextInput.height(45);
+            TextInput.border({ width: 1, color: '#E5E5E5', radius: 8 });
+            TextInput.backgroundColor(Color.White);
+            TextInput.padding({ left: 15 });
+            TextInput.margin({ bottom: 20 });
+            TextInput.onChange((value: string) => this.username = value);
+        }, TextInput);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            TextInput.create({ text: this.password, placeholder: '请输入您的密码' });
+            TextInput.debugLine("entry/src/main/ets/pages/Login.ets(104:11)", "entry");
+            TextInput.width('80%');
+            TextInput.height(45);
+            TextInput.border({ width: 1, color: '#E5E5E5', radius: 8 });
+            TextInput.backgroundColor(Color.White);
+            TextInput.padding({ left: 15 });
+            TextInput.type(InputType.Password);
+            TextInput.margin({ bottom: 20 });
+            TextInput.onChange((value: string) => this.password = value);
+        }, TextInput);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            If.create();
+            if (!this.isLoginTab) {
+                this.ifElseBranchUpdateFunction(0, () => {
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        TextInput.create({ text: this.confirmPwd, placeholder: '请确认您的密码' });
+                        TextInput.debugLine("entry/src/main/ets/pages/Login.ets(115:13)", "entry");
+                        TextInput.width('80%');
+                        TextInput.height(45);
+                        TextInput.border({ width: 1, color: '#E5E5E5', radius: 8 });
+                        TextInput.backgroundColor(Color.White);
+                        TextInput.padding({ left: 15 });
+                        TextInput.type(InputType.Password);
+                        TextInput.margin({ bottom: 40 });
+                        TextInput.onChange((value: string) => this.confirmPwd = value);
+                    }, TextInput);
+                });
+            }
+            else {
+                this.ifElseBranchUpdateFunction(1, () => {
+                });
+            }
+        }, If);
+        If.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            If.create();
+            if (this.isLoginTab) {
+                this.ifElseBranchUpdateFunction(0, () => {
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Text.create('忘记密码');
+                        Text.debugLine("entry/src/main/ets/pages/Login.ets(127:13)", "entry");
+                        Text.fontSize(14);
+                        Text.fontColor('#333333');
+                        Text.alignSelf(ItemAlign.End);
+                        Text.margin({ right: 10, bottom: 30 });
+                        Text.onClick(() => {
+                            promptAction.showToast({
+                                message: "请联系管理员重置密码"
+                            });
+                        });
+                    }, Text);
+                    Text.pop();
+                });
+            }
+            else {
+                this.ifElseBranchUpdateFunction(1, () => {
+                });
+            }
+        }, If);
+        If.pop();
+        // 输入表单
+        Column.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            // 登录/注册按钮
+            Button.createWithLabel(this.isLoginTab ? '登录' : '注册');
+            Button.debugLine("entry/src/main/ets/pages/Login.ets(141:9)", "entry");
+            // 登录/注册按钮
+            Button.width('80%');
+            // 登录/注册按钮
+            Button.height(40);
+            // 登录/注册按钮
+            Button.backgroundColor('#9EB995');
+            // 登录/注册按钮
+            Button.fontColor(Color.White);
+            // 登录/注册按钮
+            Button.borderRadius(24);
+            // 登录/注册按钮
+            Button.enabled(!this.isBlocked && !this.isLoading);
+            // 登录/注册按钮
+            Button.onClick(async () => {
+                router.pushUrl({ url: 'pages/Index' });
+                if (this.isLoading || this.isBlocked) {
+                    promptAction.showToast({ message: '操作中，请稍候' });
+                    return;
+                }
+                if (this.isLoginTab) {
+                    await this.handleLogin();
+                }
+                else {
+                    await this.handleRegister();
+                }
+            });
+        }, Button);
+        // 登录/注册按钮
+        Button.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            // 第三方登录
+            Column.create();
+            Column.debugLine("entry/src/main/ets/pages/Login.ets(162:9)", "entry");
+            // 第三方登录
+            Column.margin({ top: this.isLoginTab ? 60 : 40 });
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create('其他登录方式');
+            Text.debugLine("entry/src/main/ets/pages/Login.ets(163:11)", "entry");
+            Text.fontSize(16);
+            Text.fontColor('#9EB995');
+            Text.fontWeight(FontWeight.Bold);
+            Text.margin({ top: 50, bottom: 10 });
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Row.create();
+            Row.debugLine("entry/src/main/ets/pages/Login.ets(169:11)", "entry");
+        }, Row);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Image.create({ "id": 16777264, "type": 20000, params: [], "bundleName": "com.example.educationapplication", "moduleName": "entry" });
+            Image.debugLine("entry/src/main/ets/pages/Login.ets(170:13)", "entry");
+            Image.width(50);
+            Image.height(50);
+            Image.margin(15);
+            Image.borderRadius(20);
+            Image.onClick(() => this.handleThirdPartyLogin('微信'));
+        }, Image);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Image.create({ "id": 16777266, "type": 20000, params: [], "bundleName": "com.example.educationapplication", "moduleName": "entry" });
+            Image.debugLine("entry/src/main/ets/pages/Login.ets(177:13)", "entry");
+            Image.width(50);
+            Image.height(50);
+            Image.margin(15);
+            Image.borderRadius(20);
+            Image.onClick(() => this.handleThirdPartyLogin('QQ'));
+        }, Image);
+        Row.pop();
+        // 第三方登录
+        Column.pop();
+        Column.pop();
+        Stack.pop();
+    }
+    // ================= 工具方法 =================
+    private switchTab(isLogin: boolean) {
+        this.isLoginTab = isLogin;
+        this.username = '';
+        this.password = '';
+        this.confirmPwd = '';
+        this.errorCount = 0;
+        this.isBlocked = false;
+        this.isLoading = false;
+    }
+    // 保存登录信息（统一存储为 token + userId）
+    private async saveLoginInfo(user_id: string, access_token: string) {
+        try {
+            const ctx = getContext(this);
+            const pref = await dataPreferences.getPreferences(ctx, 'user_info');
+            // 统一 key 名称：其他页面读取的是 token 和 user_id
+            await pref.put('user_id', user_id);
+            await pref.put('token', access_token);
+            await pref.flush();
+            globalState.userId = user_id;
+            globalState.token = access_token;
+            console.log('✅ 登录信息保存成功：token=' + access_token);
+        }
+        catch (e) {
+            console.error("保存信息失败:", e);
+        }
+    }
+    // 请求
+    private async request<T>(url: string, method: http.RequestMethod, data: UserRequest): Promise<ApiResponse<T>> {
+        try {
+            this.isLoading = true;
+            const httpRequest = http.createHttp();
+            const response = await httpRequest.request(`${API_CONFIG.baseUrl}${url}`, {
+                method,
+                header: { 'Content-Type': 'application/json' },
+                extraData: JSON.stringify(data),
+                connectTimeout: 10000,
+                readTimeout: 10000
+            });
+            const result: ApiResponse<T> = JSON.parse(response.result.toString());
+            httpRequest.destroy();
+            this.isLoading = false;
+            return result;
+        }
+        catch (error) {
+            this.isLoading = false;
+            throw new Error(String(error));
+        }
+    }
+    // ================= 登录 =================
+    private async handleLogin() {
+        const acc = this.username.trim();
+        const pwd = this.password.trim();
+        if (!acc || !pwd) {
+            promptAction.showToast({ message: '账号或密码不能为空' });
+            return;
+        }
+        try {
+            const res = await this.request<LoginData>(API_CONFIG.login, http.RequestMethod.POST, {
+                username: acc, password: pwd
+            });
+            await this.saveLoginInfo(res.data.user_id, res.data.access_token);
+            promptAction.showToast({ message: '登录成功' });
+            // 跳首页
+            router.replaceUrl({ url: 'pages/Index' });
+        }
+        catch (error) {
+            this.errorCount++;
+            this.isBlocked = this.errorCount >= 3;
+            promptAction.showToast({ message: '账号或密码错误' });
+        }
+    }
+    // ================= 注册 =================
+    private async handleRegister() {
+        const acc = this.username.trim();
+        const pwd = this.password.trim();
+        const cpwd = this.confirmPwd.trim();
+        if (!acc || !pwd || !cpwd) {
+            promptAction.showToast({ message: '请填写完整' });
+            return;
+        }
+        if (acc.length < 6) {
+            promptAction.showToast({ message: '账号≥6位' });
+            return;
+        }
+        if (pwd.length < 6) {
+            promptAction.showToast({ message: '密码≥6位' });
+            return;
+        }
+        if (pwd !== cpwd) {
+            promptAction.showToast({ message: '两次密码不一致' });
+            return;
+        }
+        try {
+            const res = await this.request<LoginData>(API_CONFIG.register, http.RequestMethod.POST, {
+                username: acc, password: pwd
+            });
+            await this.saveLoginInfo(res.data.user_id, res.data.access_token);
+            promptAction.showToast({ message: '注册成功，已登录' });
+            router.replaceUrl({ url: 'pages/Index' });
+        }
+        catch (error) {
+            console.error("注册失败原因：", error);
+            promptAction.showToast({ message: '注册失败：网络或服务器异常' });
+        }
+    }
+    // 第三方登录（修复：去掉了写死的 token='t'）
+    private handleThirdPartyLogin(type: string) {
+        router.replaceUrl({ url: 'pages/Index' });
+        // 这里不能写死 token！否则永远 401
+        promptAction.showToast({ message: `${type}登录成功` });
+    }
+    rerender() {
+        this.updateDirtyElements();
+    }
+    static getEntryName(): string {
+        return "LoginPage";
+    }
+}
+registerNamedRoute(() => new LoginPage(undefined, {}), "", { bundleName: "com.example.educationapplication", moduleName: "entry", pagePath: "pages/Login", pageFullPath: "entry/src/main/ets/pages/Login", integratedHsp: "false", moduleType: "followWithHap" });

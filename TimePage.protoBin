@@ -1,0 +1,560 @@
+if (!("finalizeConstruction" in ViewPU.prototype)) {
+    Reflect.set(ViewPU.prototype, "finalizeConstruction", () => { });
+}
+interface GoalsPage_Params {
+    currentTab?: TabType;
+    targetList?: TargetItem[];
+    newTargetTitle?: string;
+    dialogController?: CustomDialogController | null;
+    quickTags?: string[];
+}
+import router from "@ohos:router";
+// 目标数据模型
+interface TargetItem {
+    id: string;
+    title: string;
+    duration: number; // 单位：分钟
+    background: Resource; // 卡片背景图
+}
+type TabType = 'home' | 'record' | 'plan' | 'mine';
+class GoalsPage extends ViewPU {
+    constructor(parent, params, __localStorage, elmtId = -1, paramsLambda = undefined, extraInfo) {
+        super(parent, __localStorage, elmtId, extraInfo);
+        if (typeof paramsLambda === "function") {
+            this.paramsGenerator_ = paramsLambda;
+        }
+        this.__currentTab = new ObservedPropertySimplePU('record', this, "currentTab");
+        this.__targetList = new ObservedPropertyObjectPU([
+            {
+                id: '1',
+                title: '按➕添加目标',
+                duration: 1,
+                background: { "id": 16777256, "type": 20000, params: [], "bundleName": "com.example.educationapplication", "moduleName": "entry" }
+            },
+            {
+                id: '2',
+                title: '长按删除目标',
+                duration: 10,
+                background: { "id": 16777244, "type": 20000, params: [], "bundleName": "com.example.educationapplication", "moduleName": "entry" }
+            }
+        ], this, "targetList");
+        this.__newTargetTitle = new ObservedPropertySimplePU('', this, "newTargetTitle");
+        this.dialogController = null;
+        this.quickTags = ['考研', '考公', '四六级', '刷题', '阅读', '运动', '编程'];
+        this.setInitiallyProvidedValue(params);
+        this.finalizeConstruction();
+    }
+    setInitiallyProvidedValue(params: GoalsPage_Params) {
+        if (params.currentTab !== undefined) {
+            this.currentTab = params.currentTab;
+        }
+        if (params.targetList !== undefined) {
+            this.targetList = params.targetList;
+        }
+        if (params.newTargetTitle !== undefined) {
+            this.newTargetTitle = params.newTargetTitle;
+        }
+        if (params.dialogController !== undefined) {
+            this.dialogController = params.dialogController;
+        }
+        if (params.quickTags !== undefined) {
+            this.quickTags = params.quickTags;
+        }
+    }
+    updateStateVars(params: GoalsPage_Params) {
+    }
+    purgeVariableDependenciesOnElmtId(rmElmtId) {
+        this.__currentTab.purgeDependencyOnElmtId(rmElmtId);
+        this.__targetList.purgeDependencyOnElmtId(rmElmtId);
+        this.__newTargetTitle.purgeDependencyOnElmtId(rmElmtId);
+    }
+    aboutToBeDeleted() {
+        this.__currentTab.aboutToBeDeleted();
+        this.__targetList.aboutToBeDeleted();
+        this.__newTargetTitle.aboutToBeDeleted();
+        SubscriberManager.Get().delete(this.id__());
+        this.aboutToBeDeletedInternal();
+    }
+    private __currentTab: ObservedPropertySimplePU<TabType>;
+    get currentTab() {
+        return this.__currentTab.get();
+    }
+    set currentTab(newValue: TabType) {
+        this.__currentTab.set(newValue);
+    }
+    // 目标列表数据（初始样例）
+    private __targetList: ObservedPropertyObjectPU<TargetItem[]>;
+    get targetList() {
+        return this.__targetList.get();
+    }
+    set targetList(newValue: TargetItem[]) {
+        this.__targetList.set(newValue);
+    }
+    // 弹窗相关状态
+    private __newTargetTitle: ObservedPropertySimplePU<string>;
+    get newTargetTitle() {
+        return this.__newTargetTitle.get();
+    }
+    set newTargetTitle(newValue: string) {
+        this.__newTargetTitle.set(newValue);
+    }
+    private dialogController: CustomDialogController | null;
+    // 快捷标签（可自定义修改）
+    private quickTags: string[];
+    // 页面初始化时创建弹窗控制器
+    aboutToAppear() {
+        this.dialogController = new CustomDialogController({
+            builder: this.AddTargetDialog.bind(this),
+            autoCancel: true,
+            alignment: DialogAlignment.Center,
+            offset: { dx: 0, dy: 0 }
+        }, this);
+    }
+    initialRender() {
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create();
+            Column.debugLine("entry/src/main/ets/pages/GoalsPages.ets(50:5)", "entry");
+            Column.width('100%');
+            Column.height('100%');
+            Column.expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM, SafeAreaEdge.TOP]);
+            Column.backgroundImage({ "id": 16777226, "type": 20000, params: [], "bundleName": "com.example.educationapplication", "moduleName": "entry" });
+            Column.backgroundImageSize(ImageSize.Cover);
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            // 顶部标题栏
+            Row.create();
+            Row.debugLine("entry/src/main/ets/pages/GoalsPages.ets(52:7)", "entry");
+            // 顶部标题栏
+            Row.width('100%');
+            // 顶部标题栏
+            Row.height(60);
+            // 顶部标题栏
+            Row.padding({ left: 16, right: 16 });
+        }, Row);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            // 标题
+            Text.create('目标');
+            Text.debugLine("entry/src/main/ets/pages/GoalsPages.ets(54:9)", "entry");
+            // 标题
+            Text.fontSize(28);
+            // 标题
+            Text.fontWeight(FontWeight.Bold);
+            // 标题
+            Text.fontColor('#ff43526d');
+            // 标题
+            Text.layoutWeight(1);
+        }, Text);
+        // 标题
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            // 计时图标（跳转到计时页面）
+            Image.create({ "id": 16777245, "type": 20000, params: [], "bundleName": "com.example.educationapplication", "moduleName": "entry" });
+            Image.debugLine("entry/src/main/ets/pages/GoalsPages.ets(61:9)", "entry");
+            // 计时图标（跳转到计时页面）
+            Image.width(28);
+            // 计时图标（跳转到计时页面）
+            Image.height(28);
+            // 计时图标（跳转到计时页面）
+            Image.margin({ right: 20 });
+            // 计时图标（跳转到计时页面）
+            Image.onClick(() => {
+                router.pushUrl({ url: 'pages/TimePage' });
+            });
+        }, Image);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            // 加号按钮（打开添加目标弹窗）
+            Image.create({ "id": 16777251, "type": 20000, params: [], "bundleName": "com.example.educationapplication", "moduleName": "entry" });
+            Image.debugLine("entry/src/main/ets/pages/GoalsPages.ets(70:9)", "entry");
+            // 加号按钮（打开添加目标弹窗）
+            Image.width(28);
+            // 加号按钮（打开添加目标弹窗）
+            Image.height(28);
+            // 加号按钮（打开添加目标弹窗）
+            Image.fillColor('#ff182832');
+            // 加号按钮（打开添加目标弹窗）
+            Image.onClick(() => {
+                this.dialogController?.open();
+            });
+        }, Image);
+        // 顶部标题栏
+        Row.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            // 可滑动目标卡片列表
+            List.create();
+            List.debugLine("entry/src/main/ets/pages/GoalsPages.ets(83:7)", "entry");
+            // 可滑动目标卡片列表
+            List.width('100%');
+            // 可滑动目标卡片列表
+            List.layoutWeight(1);
+            // 可滑动目标卡片列表
+            List.padding({ left: 16, right: 16, top: 12 });
+        }, List);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            ForEach.create();
+            const forEachItemGenFunction = _item => {
+                const item = _item;
+                {
+                    const itemCreation = (elmtId, isInitialRender) => {
+                        ViewStackProcessor.StartGetAccessRecordingFor(elmtId);
+                        ListItem.create(deepRenderFunction, true);
+                        if (!isInitialRender) {
+                            ListItem.pop();
+                        }
+                        ViewStackProcessor.StopGetAccessRecording();
+                    };
+                    const itemCreation2 = (elmtId, isInitialRender) => {
+                        ListItem.create(deepRenderFunction, true);
+                        ListItem.margin({ bottom: 12 });
+                        ListItem.debugLine("entry/src/main/ets/pages/GoalsPages.ets(85:11)", "entry");
+                    };
+                    const deepRenderFunction = (elmtId, isInitialRender) => {
+                        itemCreation(elmtId, isInitialRender);
+                        this.TargetCard.bind(this)(item);
+                        ListItem.pop();
+                    };
+                    this.observeComponentCreation2(itemCreation2, ListItem);
+                    ListItem.pop();
+                }
+            };
+            this.forEachUpdateFunction(elmtId, this.targetList, forEachItemGenFunction, (item: TargetItem) => item.id, false, false);
+        }, ForEach);
+        ForEach.pop();
+        // 可滑动目标卡片列表
+        List.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            // 底部导航
+            Row.create();
+            Row.debugLine("entry/src/main/ets/pages/GoalsPages.ets(95:7)", "entry");
+            // 底部导航
+            Row.width('100%');
+            // 底部导航
+            Row.height(70);
+            // 底部导航
+            Row.backgroundColor('#fff');
+        }, Row);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create({ space: 4 });
+            Column.debugLine("entry/src/main/ets/pages/GoalsPages.ets(96:9)", "entry");
+            Column.layoutWeight(1);
+            Column.onClick(() => {
+                this.currentTab = 'home';
+                router.pushUrl({ url: 'pages/Index' });
+            });
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create('🏠');
+            Text.debugLine("entry/src/main/ets/pages/GoalsPages.ets(97:11)", "entry");
+            Text.fontSize(24);
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create('首页');
+            Text.debugLine("entry/src/main/ets/pages/GoalsPages.ets(99:11)", "entry");
+            Text.fontSize(14);
+        }, Text);
+        Text.pop();
+        Column.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create({ space: 4 });
+            Column.debugLine("entry/src/main/ets/pages/GoalsPages.ets(108:9)", "entry");
+            Column.layoutWeight(1);
+            Column.onClick(() => { this.currentTab = 'record'; });
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create('📝');
+            Text.debugLine("entry/src/main/ets/pages/GoalsPages.ets(109:11)", "entry");
+            Text.fontSize(24);
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create('目标');
+            Text.debugLine("entry/src/main/ets/pages/GoalsPages.ets(111:11)", "entry");
+            Text.fontSize(14);
+            Text.fontColor('#409EFF');
+        }, Text);
+        Text.pop();
+        Column.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create({ space: 4 });
+            Column.debugLine("entry/src/main/ets/pages/GoalsPages.ets(118:9)", "entry");
+            Column.layoutWeight(1);
+            Column.onClick(() => {
+                this.currentTab = 'plan';
+                router.pushUrl({ url: 'pages/PlannedPage' });
+            });
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create('📅');
+            Text.debugLine("entry/src/main/ets/pages/GoalsPages.ets(119:11)", "entry");
+            Text.fontSize(24);
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create('计划');
+            Text.debugLine("entry/src/main/ets/pages/GoalsPages.ets(121:11)", "entry");
+            Text.fontSize(14);
+        }, Text);
+        Text.pop();
+        Column.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create({ space: 4 });
+            Column.debugLine("entry/src/main/ets/pages/GoalsPages.ets(130:9)", "entry");
+            Column.layoutWeight(1);
+            Column.onClick(() => {
+                this.currentTab = 'mine';
+                router.pushUrl({ url: 'pages/my/my' });
+            });
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create('👤');
+            Text.debugLine("entry/src/main/ets/pages/GoalsPages.ets(131:11)", "entry");
+            Text.fontSize(24);
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create('我的');
+            Text.debugLine("entry/src/main/ets/pages/GoalsPages.ets(133:11)", "entry");
+            Text.fontSize(14);
+        }, Text);
+        Text.pop();
+        Column.pop();
+        // 底部导航
+        Row.pop();
+        Column.pop();
+    }
+    // 目标卡片组件
+    TargetCard(item: TargetItem, parent = null) {
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Stack.create();
+            Stack.debugLine("entry/src/main/ets/pages/GoalsPages.ets(156:5)", "entry");
+            Gesture.create(GesturePriority.Low);
+            LongPressGesture.create({ repeat: false });
+            LongPressGesture.onAction(() => {
+                AlertDialog.show({
+                    title: '确认删除',
+                    message: `确定要删除目标「${item.title}」吗？`,
+                    confirm: {
+                        value: '删除',
+                        action: () => {
+                            const index = this.targetList.findIndex(t => t.id === item.id);
+                            if (index !== -1) {
+                                this.targetList.splice(index, 1);
+                            }
+                        },
+                        fontColor: '#FF3B30'
+                    },
+                    // cancel: {
+                    //value: '取消', // 必须加的value字段
+                    // action: () => {
+                    // 取消操作，空实现即可
+                    //  }
+                    //}
+                });
+            });
+            LongPressGesture.pop();
+            Gesture.pop();
+            Stack.onClick(() => {
+                router.pushUrl({
+                    url: 'pages/TargetDetailPage',
+                    params: { targetId: item.id, title: item.title }
+                });
+            });
+        }, Stack);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Row.create();
+            Row.debugLine("entry/src/main/ets/pages/GoalsPages.ets(157:7)", "entry");
+            Row.width('100%');
+            Row.height(100);
+            Row.padding({ left: 20, right: 20 });
+            Row.backgroundImage(item.background);
+            Row.backgroundImageSize(ImageSize.Cover);
+            Row.borderRadius(12);
+        }, Row);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create();
+            Column.debugLine("entry/src/main/ets/pages/GoalsPages.ets(158:9)", "entry");
+            Column.layoutWeight(1);
+            Column.alignItems(HorizontalAlign.Start);
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            // 目标标题
+            Text.create(item.title);
+            Text.debugLine("entry/src/main/ets/pages/GoalsPages.ets(160:11)", "entry");
+            // 目标标题
+            Text.fontSize(22);
+            // 目标标题
+            Text.fontColor('#ff2f2e2e');
+            // 目标标题
+            Text.fontWeight(FontWeight.Medium);
+            // 目标标题
+            Text.alignSelf(ItemAlign.Start);
+            // 目标标题
+            Text.margin({ bottom: 8 });
+        }, Text);
+        // 目标标题
+        Text.pop();
+        Column.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            // 开始按钮（跳转到规划页）
+            Text.create('开始');
+            Text.debugLine("entry/src/main/ets/pages/GoalsPages.ets(178:9)", "entry");
+            // 开始按钮（跳转到规划页）
+            Text.fontSize(20);
+            // 开始按钮（跳转到规划页）
+            Text.fontColor(Color.White);
+            // 开始按钮（跳转到规划页）
+            Text.fontWeight(FontWeight.Medium);
+            // 开始按钮（跳转到规划页）
+            Text.onClick(() => {
+                router.pushUrl({
+                    url: 'pages/TimePage',
+                    params: { targetTitle: item.title, duration: item.duration }
+                });
+            });
+        }, Text);
+        // 开始按钮（跳转到规划页）
+        Text.pop();
+        Row.pop();
+        Stack.pop();
+    }
+    // 添加目标弹窗
+    AddTargetDialog(parent = null) {
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create();
+            Column.debugLine("entry/src/main/ets/pages/GoalsPages.ets(242:5)", "entry");
+            Column.width('100%');
+            Column.padding(20);
+            Column.borderRadius(16);
+            Column.backgroundColor('#fff1f5f1');
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            // 弹窗头部（标题+完成/取消按钮）
+            Row.create();
+            Row.debugLine("entry/src/main/ets/pages/GoalsPages.ets(244:7)", "entry");
+            // 弹窗头部（标题+完成/取消按钮）
+            Row.width('100%');
+            // 弹窗头部（标题+完成/取消按钮）
+            Row.margin({ bottom: 20 });
+        }, Row);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create('添加目标');
+            Text.debugLine("entry/src/main/ets/pages/GoalsPages.ets(245:9)", "entry");
+            Text.fontSize(20);
+            Text.fontWeight(FontWeight.Medium);
+            Text.layoutWeight(1);
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            // 完成按钮
+            Image.create({ "id": 16777231, "type": 20000, params: [], "bundleName": "com.example.educationapplication", "moduleName": "entry" });
+            Image.debugLine("entry/src/main/ets/pages/GoalsPages.ets(251:9)", "entry");
+            // 完成按钮
+            Image.width(24);
+            // 完成按钮
+            Image.height(24);
+            // 完成按钮
+            Image.fillColor('#007DFF');
+            // 完成按钮
+            Image.onClick(() => {
+                if (this.newTargetTitle.trim() === '')
+                    return;
+                // 生成新目标
+                const newTarget: TargetItem = {
+                    id: Date.now().toString(),
+                    title: this.newTargetTitle,
+                    duration: 25,
+                    background: this.getRandomBg() // 随机分配背景图
+                };
+                this.targetList.push(newTarget);
+                this.newTargetTitle = '';
+                this.dialogController?.close();
+            });
+        }, Image);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            // 取消按钮
+            Image.create({ "id": 16777242, "type": 20000, params: [], "bundleName": "com.example.educationapplication", "moduleName": "entry" });
+            Image.debugLine("entry/src/main/ets/pages/GoalsPages.ets(272:9)", "entry");
+            // 取消按钮
+            Image.width(24);
+            // 取消按钮
+            Image.height(24);
+            // 取消按钮
+            Image.fillColor('#666666');
+            // 取消按钮
+            Image.margin({ left: 16 });
+            // 取消按钮
+            Image.onClick(() => {
+                this.newTargetTitle = '';
+                this.dialogController?.close();
+            });
+        }, Image);
+        // 弹窗头部（标题+完成/取消按钮）
+        Row.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            // 目标名称输入框
+            TextInput.create({ text: this.newTargetTitle, placeholder: '请输入目标名称' });
+            TextInput.debugLine("entry/src/main/ets/pages/GoalsPages.ets(286:7)", "entry");
+            // 目标名称输入框
+            TextInput.width('100%');
+            // 目标名称输入框
+            TextInput.height(48);
+            // 目标名称输入框
+            TextInput.fontSize(18);
+            // 目标名称输入框
+            TextInput.margin({ bottom: 20 });
+            // 目标名称输入框
+            TextInput.onChange((value: string) => {
+                this.newTargetTitle = value;
+            });
+        }, TextInput);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            // 快捷标签区域
+            Flex.create({ wrap: FlexWrap.Wrap, justifyContent: FlexAlign.Start, alignItems: ItemAlign.Center });
+            Flex.debugLine("entry/src/main/ets/pages/GoalsPages.ets(296:7)", "entry");
+            // 快捷标签区域
+            Flex.width('100%');
+        }, Flex);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            ForEach.create();
+            const forEachItemGenFunction = _item => {
+                const tag = _item;
+                this.observeComponentCreation2((elmtId, isInitialRender) => {
+                    Text.create(tag);
+                    Text.debugLine("entry/src/main/ets/pages/GoalsPages.ets(298:11)", "entry");
+                    Text.fontSize(16);
+                    Text.fontColor('#007DFF');
+                    Text.padding({ left: 16, right: 16, top: 8, bottom: 8 });
+                    Text.backgroundColor('#E5F0FF');
+                    Text.borderRadius(20);
+                    Text.margin({ right: 12, bottom: 12 });
+                    Text.onClick(() => {
+                        this.newTargetTitle = tag;
+                    });
+                }, Text);
+                Text.pop();
+            };
+            this.forEachUpdateFunction(elmtId, this.quickTags, forEachItemGenFunction, (tag: string) => tag, false, false);
+        }, ForEach);
+        ForEach.pop();
+        // 快捷标签区域
+        Flex.pop();
+        Column.pop();
+    }
+    // 随机获取背景图工具函数
+    private getRandomBg(): Resource {
+        const bgList: Resource[] = [
+            { "id": 16777241, "type": 20000, params: [], "bundleName": "com.example.educationapplication", "moduleName": "entry" },
+            { "id": 16777244, "type": 20000, params: [], "bundleName": "com.example.educationapplication", "moduleName": "entry" },
+            { "id": 16777223, "type": 20000, params: [], "bundleName": "com.example.educationapplication", "moduleName": "entry" },
+            { "id": 16777256, "type": 20000, params: [], "bundleName": "com.example.educationapplication", "moduleName": "entry" }
+        ];
+        return bgList[Math.floor(Math.random() * bgList.length)];
+    }
+    rerender() {
+        this.updateDirtyElements();
+    }
+    static getEntryName(): string {
+        return "GoalsPage";
+    }
+}
+registerNamedRoute(() => new GoalsPage(undefined, {}), "", { bundleName: "com.example.educationapplication", moduleName: "entry", pagePath: "pages/GoalsPages", pageFullPath: "entry/src/main/ets/pages/GoalsPages", integratedHsp: "false", moduleType: "followWithHap" });

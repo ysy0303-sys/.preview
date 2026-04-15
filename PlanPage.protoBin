@@ -1,0 +1,66 @@
+if (!("finalizeConstruction" in ViewPU.prototype)) {
+    Reflect.set(ViewPU.prototype, "finalizeConstruction", () => { });
+}
+interface EntryPage_Params {
+}
+import router from "@ohos:router";
+import preferences from "@ohos:data.preferences";
+class EntryPage extends ViewPU {
+    constructor(parent, params, __localStorage, elmtId = -1, paramsLambda = undefined, extraInfo) {
+        super(parent, __localStorage, elmtId, extraInfo);
+        if (typeof paramsLambda === "function") {
+            this.paramsGenerator_ = paramsLambda;
+        }
+        this.setInitiallyProvidedValue(params);
+        this.finalizeConstruction();
+    }
+    setInitiallyProvidedValue(params: EntryPage_Params) {
+    }
+    updateStateVars(params: EntryPage_Params) {
+    }
+    purgeVariableDependenciesOnElmtId(rmElmtId) {
+    }
+    aboutToBeDeleted() {
+        SubscriberManager.Get().delete(this.id__());
+        this.aboutToBeDeletedInternal();
+    }
+    async aboutToAppear() {
+        let prefs = await preferences.getPreferences(getContext(this), "user_info");
+        let token = await prefs.get("access_token", "");
+        if (token) {
+            router.replaceUrl({ url: "pages/Index" });
+        }
+        else {
+            router.replaceUrl({ url: "pages/LoginPage" });
+        }
+    }
+    initialRender() {
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            // 用 Column 包裹，作为唯一根容器
+            Column.create();
+            Column.debugLine("entry/src/main/ets/pages/EntryPage.ets(20:5)", "entry");
+            // 用 Column 包裹，作为唯一根容器
+            Column.width('100%');
+            // 用 Column 包裹，作为唯一根容器
+            Column.height('100%');
+            // 用 Column 包裹，作为唯一根容器
+            Column.justifyContent(FlexAlign.Center);
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            LoadingProgress.create();
+            LoadingProgress.debugLine("entry/src/main/ets/pages/EntryPage.ets(21:7)", "entry");
+            LoadingProgress.width(50);
+            LoadingProgress.height(50);
+            LoadingProgress.color("#9EB995");
+        }, LoadingProgress);
+        // 用 Column 包裹，作为唯一根容器
+        Column.pop();
+    }
+    rerender() {
+        this.updateDirtyElements();
+    }
+    static getEntryName(): string {
+        return "EntryPage";
+    }
+}
+registerNamedRoute(() => new EntryPage(undefined, {}), "", { bundleName: "com.example.educationapplication", moduleName: "entry", pagePath: "pages/EntryPage", pageFullPath: "entry/src/main/ets/pages/EntryPage", integratedHsp: "false", moduleType: "followWithHap" });

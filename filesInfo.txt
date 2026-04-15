@@ -1,0 +1,1832 @@
+if (!("finalizeConstruction" in ViewPU.prototype)) {
+    Reflect.set(ViewPU.prototype, "finalizeConstruction", () => { });
+}
+interface Index_Params {
+    currentTab?: TabType;
+    dayTotal?: number;
+    weekTotal?: number;
+    monthTotal?: number;
+    totalHours?: number;
+    carouselItems?: CarouselItem[];
+    planId?: string;
+    isLoading?: boolean;
+    errorMsg?: string;
+    todos?: TodoItem[];
+    goalProgressList?: GoalTaskProgress[];
+    overallCompletionRate?: number;
+    durationDay?: DurationItem[];
+    durationWeek?: DurationItem[];
+    durationMonth?: DurationItem[];
+    durationTab?: DurationTabType;
+    showTodo?: boolean;
+    showWeekRate?: boolean;
+    showGpa?: boolean;
+    showGoal?: boolean;
+    showDuration?: boolean;
+    newTaskInput?: string;
+    showAddTaskDialog?: boolean;
+    showMethodDetail?: boolean;
+    currentMethodDetail?: string;
+    finishRate?: number;
+    gpaValue?: number;
+    todayProgress?: number;
+    showAIChatDialog?: boolean;
+}
+import router from "@ohos:router";
+import { AIChatDialog } from "@normalized:N&&&entry/src/main/ets/pages/chat&";
+import promptAction from "@ohos:promptAction";
+import type common from "@ohos:app.ability.common";
+import dataPreferences from "@ohos:data.preferences";
+import http from "@ohos:net.http";
+import type { BusinessError } from "@ohos:base";
+type TabType = 'home' | 'plan' | 'recommend' | 'message' | 'mine';
+type DurationTabType = 'day' | 'week' | 'month';
+type TaskStatusEnum = 'TODO' | 'DOING' | 'DONE' | 'PAUSED' | 'CANCELLED';
+type TaskPriorityEnum = 'HIGH' | 'MID' | 'LOW';
+interface TodoItem {
+    id: number;
+    content: string;
+    done: boolean;
+    category?: string;
+    plannedHours?: number;
+    priority?: TaskPriorityEnum;
+}
+// 每日GPA接口返回类型
+interface DailyGpaResponse {
+    daily_gpa_average: number;
+}
+interface StudyTimeResponse {
+    total_duration: number;
+}
+// 每周完成率接口返回类型
+interface WeeklyCompletionRateResponse {
+    completion_rate: number;
+}
+interface SubjectProgress {
+    name: string;
+    progress: number;
+}
+interface DurationItem {
+    name: string;
+    hours: number;
+}
+interface Task {
+    id: number;
+    user_id: number;
+    title: string;
+    task_date: string;
+    status: string;
+    priority: TaskPriorityEnum;
+}
+interface DayDetailResponse {
+    plan_id: string;
+    date: string;
+    task_count: number;
+    tasks: Task[];
+}
+interface GoalTaskProgress {
+    goal_title: string;
+    completion_percentage: number;
+}
+interface UserGoalsProgressResponse {
+    goals: GoalTaskProgress[];
+    overall_completion_rate: number;
+}
+interface CarouselItem {
+    image: Resource;
+    detail: string;
+}
+async function fetchDailyTasks(year: number, month: number, day: number, token: string): Promise<DayDetailResponse> {
+    let httpRequest: http.HttpRequest | null = null;
+    try {
+        httpRequest = http.createHttp();
+        const baseUrl = 'https://designcompetition-production.up.railway.app/api/tasks/day';
+        const url = `${baseUrl}?year=${year}&month=${month}&day=${day}`;
+        const response = await httpRequest.request(url, {
+            method: http.RequestMethod.GET,
+            header: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            connectTimeout: 10000,
+            readTimeout: 10000
+        });
+        if (response.responseCode === 401) {
+            throw new Error('登录已过期，请重新登录');
+        }
+        if (response.responseCode !== http.ResponseCode.OK) {
+            throw new Error(`请求失败，状态码：${response.responseCode}`);
+        }
+        const resultStr = typeof response.result === 'string'
+            ? response.result
+            : JSON.stringify(response.result);
+        return JSON.parse(resultStr) as DayDetailResponse;
+    }
+    catch (error) {
+        const err = error as BusinessError;
+        console.error("获取任务失败：", err.message);
+        throw new Error(err.message);
+    }
+    finally {
+        if (httpRequest) {
+            httpRequest.destroy();
+        }
+    }
+}
+class Index extends ViewPU {
+    constructor(parent, params, __localStorage, elmtId = -1, paramsLambda = undefined, extraInfo) {
+        super(parent, __localStorage, elmtId, extraInfo);
+        if (typeof paramsLambda === "function") {
+            this.paramsGenerator_ = paramsLambda;
+        }
+        this.__currentTab = new ObservedPropertySimplePU('home', this, "currentTab");
+        this.__dayTotal = new ObservedPropertySimplePU(0, this, "dayTotal");
+        this.__weekTotal = new ObservedPropertySimplePU(0, this, "weekTotal");
+        this.__monthTotal = new ObservedPropertySimplePU(0, this, "monthTotal");
+        this.__totalHours = new ObservedPropertySimplePU(0, this, "totalHours");
+        this.carouselItems = [
+            {
+                image: { "id": 16777259, "type": 20000, params: [], "bundleName": "com.example.educationapplication", "moduleName": "entry" },
+                detail: "专注学习是高效提升的基础。建议在学习时远离手机、电脑等干扰源。"
+            },
+            {
+                image: { "id": 16777258, "type": 20000, params: [], "bundleName": "com.example.educationapplication", "moduleName": "entry" },
+                detail: "费曼学习法的核心是'以教代学'。当你学习一个新概念时，尝试用自己的话把它讲清楚。"
+            },
+            {
+                image: { "id": 16777252, "type": 20000, params: [], "bundleName": "com.example.educationapplication", "moduleName": "entry" },
+                detail: "番茄工作法是一种简单的时间管理方法。将工作/学习时间划分为25分钟专注时段，之后休息5分钟。"
+            }
+        ];
+        this.__planId = new ObservedPropertySimplePU('default_plan', this, "planId");
+        this.__isLoading = new ObservedPropertySimplePU(false, this, "isLoading");
+        this.__errorMsg = new ObservedPropertySimplePU('', this, "errorMsg");
+        this.__todos = new ObservedPropertyObjectPU([], this, "todos");
+        this.__goalProgressList = new ObservedPropertyObjectPU([], this, "goalProgressList");
+        this.__overallCompletionRate = new ObservedPropertySimplePU(0, this, "overallCompletionRate");
+        this.__durationDay = new ObservedPropertyObjectPU([], this, "durationDay");
+        this.__durationWeek = new ObservedPropertyObjectPU([], this, "durationWeek");
+        this.__durationMonth = new ObservedPropertyObjectPU([], this, "durationMonth");
+        this.__durationTab = new ObservedPropertySimplePU('day', this, "durationTab");
+        this.__showTodo = new ObservedPropertySimplePU(false, this, "showTodo");
+        this.__showWeekRate = new ObservedPropertySimplePU(false, this, "showWeekRate");
+        this.__showGpa = new ObservedPropertySimplePU(false, this, "showGpa");
+        this.__showGoal = new ObservedPropertySimplePU(false, this, "showGoal");
+        this.__showDuration = new ObservedPropertySimplePU(true, this, "showDuration");
+        this.__newTaskInput = new ObservedPropertySimplePU('', this, "newTaskInput");
+        this.__showAddTaskDialog = new ObservedPropertySimplePU(false, this, "showAddTaskDialog");
+        this.__showMethodDetail = new ObservedPropertySimplePU(false, this, "showMethodDetail");
+        this.__currentMethodDetail = new ObservedPropertySimplePU('', this, "currentMethodDetail");
+        this.__finishRate = new ObservedPropertySimplePU(0, this, "finishRate");
+        this.__gpaValue = new ObservedPropertySimplePU(0, this, "gpaValue");
+        this.__todayProgress = new ObservedPropertySimplePU(0, this, "todayProgress");
+        this.__showAIChatDialog = new ObservedPropertySimplePU(false, this, "showAIChatDialog");
+        this.setInitiallyProvidedValue(params);
+        this.finalizeConstruction();
+    }
+    setInitiallyProvidedValue(params: Index_Params) {
+        if (params.currentTab !== undefined) {
+            this.currentTab = params.currentTab;
+        }
+        if (params.dayTotal !== undefined) {
+            this.dayTotal = params.dayTotal;
+        }
+        if (params.weekTotal !== undefined) {
+            this.weekTotal = params.weekTotal;
+        }
+        if (params.monthTotal !== undefined) {
+            this.monthTotal = params.monthTotal;
+        }
+        if (params.totalHours !== undefined) {
+            this.totalHours = params.totalHours;
+        }
+        if (params.carouselItems !== undefined) {
+            this.carouselItems = params.carouselItems;
+        }
+        if (params.planId !== undefined) {
+            this.planId = params.planId;
+        }
+        if (params.isLoading !== undefined) {
+            this.isLoading = params.isLoading;
+        }
+        if (params.errorMsg !== undefined) {
+            this.errorMsg = params.errorMsg;
+        }
+        if (params.todos !== undefined) {
+            this.todos = params.todos;
+        }
+        if (params.goalProgressList !== undefined) {
+            this.goalProgressList = params.goalProgressList;
+        }
+        if (params.overallCompletionRate !== undefined) {
+            this.overallCompletionRate = params.overallCompletionRate;
+        }
+        if (params.durationDay !== undefined) {
+            this.durationDay = params.durationDay;
+        }
+        if (params.durationWeek !== undefined) {
+            this.durationWeek = params.durationWeek;
+        }
+        if (params.durationMonth !== undefined) {
+            this.durationMonth = params.durationMonth;
+        }
+        if (params.durationTab !== undefined) {
+            this.durationTab = params.durationTab;
+        }
+        if (params.showTodo !== undefined) {
+            this.showTodo = params.showTodo;
+        }
+        if (params.showWeekRate !== undefined) {
+            this.showWeekRate = params.showWeekRate;
+        }
+        if (params.showGpa !== undefined) {
+            this.showGpa = params.showGpa;
+        }
+        if (params.showGoal !== undefined) {
+            this.showGoal = params.showGoal;
+        }
+        if (params.showDuration !== undefined) {
+            this.showDuration = params.showDuration;
+        }
+        if (params.newTaskInput !== undefined) {
+            this.newTaskInput = params.newTaskInput;
+        }
+        if (params.showAddTaskDialog !== undefined) {
+            this.showAddTaskDialog = params.showAddTaskDialog;
+        }
+        if (params.showMethodDetail !== undefined) {
+            this.showMethodDetail = params.showMethodDetail;
+        }
+        if (params.currentMethodDetail !== undefined) {
+            this.currentMethodDetail = params.currentMethodDetail;
+        }
+        if (params.finishRate !== undefined) {
+            this.finishRate = params.finishRate;
+        }
+        if (params.gpaValue !== undefined) {
+            this.gpaValue = params.gpaValue;
+        }
+        if (params.todayProgress !== undefined) {
+            this.todayProgress = params.todayProgress;
+        }
+        if (params.showAIChatDialog !== undefined) {
+            this.showAIChatDialog = params.showAIChatDialog;
+        }
+    }
+    updateStateVars(params: Index_Params) {
+    }
+    purgeVariableDependenciesOnElmtId(rmElmtId) {
+        this.__currentTab.purgeDependencyOnElmtId(rmElmtId);
+        this.__dayTotal.purgeDependencyOnElmtId(rmElmtId);
+        this.__weekTotal.purgeDependencyOnElmtId(rmElmtId);
+        this.__monthTotal.purgeDependencyOnElmtId(rmElmtId);
+        this.__totalHours.purgeDependencyOnElmtId(rmElmtId);
+        this.__planId.purgeDependencyOnElmtId(rmElmtId);
+        this.__isLoading.purgeDependencyOnElmtId(rmElmtId);
+        this.__errorMsg.purgeDependencyOnElmtId(rmElmtId);
+        this.__todos.purgeDependencyOnElmtId(rmElmtId);
+        this.__goalProgressList.purgeDependencyOnElmtId(rmElmtId);
+        this.__overallCompletionRate.purgeDependencyOnElmtId(rmElmtId);
+        this.__durationDay.purgeDependencyOnElmtId(rmElmtId);
+        this.__durationWeek.purgeDependencyOnElmtId(rmElmtId);
+        this.__durationMonth.purgeDependencyOnElmtId(rmElmtId);
+        this.__durationTab.purgeDependencyOnElmtId(rmElmtId);
+        this.__showTodo.purgeDependencyOnElmtId(rmElmtId);
+        this.__showWeekRate.purgeDependencyOnElmtId(rmElmtId);
+        this.__showGpa.purgeDependencyOnElmtId(rmElmtId);
+        this.__showGoal.purgeDependencyOnElmtId(rmElmtId);
+        this.__showDuration.purgeDependencyOnElmtId(rmElmtId);
+        this.__newTaskInput.purgeDependencyOnElmtId(rmElmtId);
+        this.__showAddTaskDialog.purgeDependencyOnElmtId(rmElmtId);
+        this.__showMethodDetail.purgeDependencyOnElmtId(rmElmtId);
+        this.__currentMethodDetail.purgeDependencyOnElmtId(rmElmtId);
+        this.__finishRate.purgeDependencyOnElmtId(rmElmtId);
+        this.__gpaValue.purgeDependencyOnElmtId(rmElmtId);
+        this.__todayProgress.purgeDependencyOnElmtId(rmElmtId);
+        this.__showAIChatDialog.purgeDependencyOnElmtId(rmElmtId);
+    }
+    aboutToBeDeleted() {
+        this.__currentTab.aboutToBeDeleted();
+        this.__dayTotal.aboutToBeDeleted();
+        this.__weekTotal.aboutToBeDeleted();
+        this.__monthTotal.aboutToBeDeleted();
+        this.__totalHours.aboutToBeDeleted();
+        this.__planId.aboutToBeDeleted();
+        this.__isLoading.aboutToBeDeleted();
+        this.__errorMsg.aboutToBeDeleted();
+        this.__todos.aboutToBeDeleted();
+        this.__goalProgressList.aboutToBeDeleted();
+        this.__overallCompletionRate.aboutToBeDeleted();
+        this.__durationDay.aboutToBeDeleted();
+        this.__durationWeek.aboutToBeDeleted();
+        this.__durationMonth.aboutToBeDeleted();
+        this.__durationTab.aboutToBeDeleted();
+        this.__showTodo.aboutToBeDeleted();
+        this.__showWeekRate.aboutToBeDeleted();
+        this.__showGpa.aboutToBeDeleted();
+        this.__showGoal.aboutToBeDeleted();
+        this.__showDuration.aboutToBeDeleted();
+        this.__newTaskInput.aboutToBeDeleted();
+        this.__showAddTaskDialog.aboutToBeDeleted();
+        this.__showMethodDetail.aboutToBeDeleted();
+        this.__currentMethodDetail.aboutToBeDeleted();
+        this.__finishRate.aboutToBeDeleted();
+        this.__gpaValue.aboutToBeDeleted();
+        this.__todayProgress.aboutToBeDeleted();
+        this.__showAIChatDialog.aboutToBeDeleted();
+        SubscriberManager.Get().delete(this.id__());
+        this.aboutToBeDeletedInternal();
+    }
+    private __currentTab: ObservedPropertySimplePU<TabType>;
+    get currentTab() {
+        return this.__currentTab.get();
+    }
+    set currentTab(newValue: TabType) {
+        this.__currentTab.set(newValue);
+    }
+    private __dayTotal: ObservedPropertySimplePU<number>;
+    get dayTotal() {
+        return this.__dayTotal.get();
+    }
+    set dayTotal(newValue: number) {
+        this.__dayTotal.set(newValue);
+    }
+    private __weekTotal: ObservedPropertySimplePU<number>;
+    get weekTotal() {
+        return this.__weekTotal.get();
+    }
+    set weekTotal(newValue: number) {
+        this.__weekTotal.set(newValue);
+    }
+    private __monthTotal: ObservedPropertySimplePU<number>;
+    get monthTotal() {
+        return this.__monthTotal.get();
+    }
+    set monthTotal(newValue: number) {
+        this.__monthTotal.set(newValue);
+    }
+    private __totalHours: ObservedPropertySimplePU<number>;
+    get totalHours() {
+        return this.__totalHours.get();
+    }
+    set totalHours(newValue: number) {
+        this.__totalHours.set(newValue);
+    }
+    private carouselItems: CarouselItem[];
+    private __planId: ObservedPropertySimplePU<string>;
+    get planId() {
+        return this.__planId.get();
+    }
+    set planId(newValue: string) {
+        this.__planId.set(newValue);
+    }
+    private __isLoading: ObservedPropertySimplePU<boolean>;
+    get isLoading() {
+        return this.__isLoading.get();
+    }
+    set isLoading(newValue: boolean) {
+        this.__isLoading.set(newValue);
+    }
+    private __errorMsg: ObservedPropertySimplePU<string>;
+    get errorMsg() {
+        return this.__errorMsg.get();
+    }
+    set errorMsg(newValue: string) {
+        this.__errorMsg.set(newValue);
+    }
+    private __todos: ObservedPropertyObjectPU<TodoItem[]>;
+    get todos() {
+        return this.__todos.get();
+    }
+    set todos(newValue: TodoItem[]) {
+        this.__todos.set(newValue);
+    }
+    private __goalProgressList: ObservedPropertyObjectPU<GoalTaskProgress[]>;
+    get goalProgressList() {
+        return this.__goalProgressList.get();
+    }
+    set goalProgressList(newValue: GoalTaskProgress[]) {
+        this.__goalProgressList.set(newValue);
+    }
+    private __overallCompletionRate: ObservedPropertySimplePU<number>;
+    get overallCompletionRate() {
+        return this.__overallCompletionRate.get();
+    }
+    set overallCompletionRate(newValue: number) {
+        this.__overallCompletionRate.set(newValue);
+    }
+    private __durationDay: ObservedPropertyObjectPU<DurationItem[]>;
+    get durationDay() {
+        return this.__durationDay.get();
+    }
+    set durationDay(newValue: DurationItem[]) {
+        this.__durationDay.set(newValue);
+    }
+    private __durationWeek: ObservedPropertyObjectPU<DurationItem[]>;
+    get durationWeek() {
+        return this.__durationWeek.get();
+    }
+    set durationWeek(newValue: DurationItem[]) {
+        this.__durationWeek.set(newValue);
+    }
+    private __durationMonth: ObservedPropertyObjectPU<DurationItem[]>;
+    get durationMonth() {
+        return this.__durationMonth.get();
+    }
+    set durationMonth(newValue: DurationItem[]) {
+        this.__durationMonth.set(newValue);
+    }
+    private __durationTab: ObservedPropertySimplePU<DurationTabType>;
+    get durationTab() {
+        return this.__durationTab.get();
+    }
+    set durationTab(newValue: DurationTabType) {
+        this.__durationTab.set(newValue);
+    }
+    private __showTodo: ObservedPropertySimplePU<boolean>;
+    get showTodo() {
+        return this.__showTodo.get();
+    }
+    set showTodo(newValue: boolean) {
+        this.__showTodo.set(newValue);
+    }
+    private __showWeekRate: ObservedPropertySimplePU<boolean>;
+    get showWeekRate() {
+        return this.__showWeekRate.get();
+    }
+    set showWeekRate(newValue: boolean) {
+        this.__showWeekRate.set(newValue);
+    }
+    private __showGpa: ObservedPropertySimplePU<boolean>;
+    get showGpa() {
+        return this.__showGpa.get();
+    }
+    set showGpa(newValue: boolean) {
+        this.__showGpa.set(newValue);
+    }
+    private __showGoal: ObservedPropertySimplePU<boolean>;
+    get showGoal() {
+        return this.__showGoal.get();
+    }
+    set showGoal(newValue: boolean) {
+        this.__showGoal.set(newValue);
+    }
+    private __showDuration: ObservedPropertySimplePU<boolean>;
+    get showDuration() {
+        return this.__showDuration.get();
+    }
+    set showDuration(newValue: boolean) {
+        this.__showDuration.set(newValue);
+    }
+    private __newTaskInput: ObservedPropertySimplePU<string>;
+    get newTaskInput() {
+        return this.__newTaskInput.get();
+    }
+    set newTaskInput(newValue: string) {
+        this.__newTaskInput.set(newValue);
+    }
+    private __showAddTaskDialog: ObservedPropertySimplePU<boolean>;
+    get showAddTaskDialog() {
+        return this.__showAddTaskDialog.get();
+    }
+    set showAddTaskDialog(newValue: boolean) {
+        this.__showAddTaskDialog.set(newValue);
+    }
+    private __showMethodDetail: ObservedPropertySimplePU<boolean>;
+    get showMethodDetail() {
+        return this.__showMethodDetail.get();
+    }
+    set showMethodDetail(newValue: boolean) {
+        this.__showMethodDetail.set(newValue);
+    }
+    private __currentMethodDetail: ObservedPropertySimplePU<string>;
+    get currentMethodDetail() {
+        return this.__currentMethodDetail.get();
+    }
+    set currentMethodDetail(newValue: string) {
+        this.__currentMethodDetail.set(newValue);
+    }
+    private __finishRate: ObservedPropertySimplePU<number>;
+    get finishRate() {
+        return this.__finishRate.get();
+    }
+    set finishRate(newValue: number) {
+        this.__finishRate.set(newValue);
+    }
+    private __gpaValue: ObservedPropertySimplePU<number>;
+    get gpaValue() {
+        return this.__gpaValue.get();
+    }
+    set gpaValue(newValue: number) {
+        this.__gpaValue.set(newValue);
+    }
+    private __todayProgress: ObservedPropertySimplePU<number>;
+    get todayProgress() {
+        return this.__todayProgress.get();
+    }
+    set todayProgress(newValue: number) {
+        this.__todayProgress.set(newValue);
+    }
+    private __showAIChatDialog: ObservedPropertySimplePU<boolean>;
+    get showAIChatDialog() {
+        return this.__showAIChatDialog.get();
+    }
+    set showAIChatDialog(newValue: boolean) {
+        this.__showAIChatDialog.set(newValue);
+    }
+    // 👉 获取本周完成率（调用你新的后端接口）
+    async fetchWeeklyCompletionRate(token: string) {
+        const now = new Date();
+        const y = now.getFullYear();
+        const m = now.getMonth() + 1;
+        const d = now.getDate();
+        let httpRequest = http.createHttp();
+        try {
+            console.log("【完成率】开始请求");
+            const res = await httpRequest.request(`https://designcompetition-production.up.railway.app/api/user/weekly_completion_rate?year=${y}&month=${m}&day=${d}`, { method: http.RequestMethod.GET, header: { "Content-Type": "application/json", Authorization: `Bearer ${token}` } });
+            console.log("【完成率】响应码：", res.responseCode);
+            console.log("【完成率】返回数据：", res.result);
+            if (res.responseCode === 200) {
+                const data = JSON.parse(res.result as string) as WeeklyCompletionRateResponse;
+                this.finishRate = data.completion_rate ?? 0;
+                console.log("【完成率】解析结果：", this.finishRate);
+            }
+        }
+        catch (err) {
+            console.error("【完成率】失败：", JSON.stringify(err));
+        }
+        finally {
+            httpRequest.destroy();
+        }
+    }
+    async fetchUserGoalProgress(token: string) {
+        let httpRequest = http.createHttp();
+        try {
+            console.log("【目标进度】开始请求");
+            const res = await httpRequest.request("https://designcompetition-production.up.railway.app/api/user/goals/progress", { method: http.RequestMethod.GET, header: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` } });
+            console.log("【目标进度】响应码：", res.responseCode);
+            console.log("【目标进度】返回数据：", res.result);
+            if (res.responseCode === 200) {
+                const data = JSON.parse(res.result as string) as UserGoalsProgressResponse;
+                this.goalProgressList = data.goals;
+                this.overallCompletionRate = data.overall_completion_rate;
+                console.log("【目标进度】解析结果：", data);
+            }
+        }
+        catch (err) {
+            console.error("【目标进度】失败：", JSON.stringify(err));
+        }
+        finally {
+            httpRequest.destroy();
+        }
+    }
+    // 👉 获取今日 GPA
+    async fetchDailyGpa(token: string) {
+        const now = new Date();
+        const y = now.getFullYear();
+        const m = now.getMonth() + 1;
+        const d = now.getDate();
+        let httpRequest = http.createHttp();
+        try {
+            console.log("【GPA请求】开始调用接口");
+            const res = await httpRequest.request(`https://designcompetition-production.up.railway.app/api/user/daily_gpa?year=${y}&month=${m}&day=${d}`, {
+                method: http.RequestMethod.GET,
+                header: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`
+                }
+            });
+            console.log("【GPA请求】响应码：", res.responseCode);
+            console.log("【GPA请求】返回数据：", res.result);
+            if (res.responseCode === 200) {
+                // 🔥 修复：后端返回纯数字，直接转数字
+                this.gpaValue = Number(res.result);
+                console.log("【GPA结果】页面显示：", this.gpaValue);
+            }
+        }
+        catch (err) {
+            console.error("【GPA请求】失败：", err);
+        }
+        finally {
+            httpRequest.destroy();
+        }
+    }
+    async fetchDayTotal(token: string) {
+        const now = new Date();
+        const y = now.getFullYear();
+        const m = now.getMonth() + 1;
+        const d = now.getDate();
+        console.log("【日时长】前端发送 -> 年:", y, "月:", m, "日:", d);
+        let httpRequest = http.createHttp();
+        try {
+            console.log("【日时长】开始请求");
+            const res = await httpRequest.request(`https://designcompetition-production.up.railway.app/api/user/study_time/day?year=${y}&month=${m}&day=${d}`, {
+                method: http.RequestMethod.GET,
+                header: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`
+                }
+            });
+            console.log("【日时长】响应码：", res.responseCode);
+            console.log("【日时长】返回数据：", res.result);
+            if (res.responseCode === 200) {
+                const data = JSON.parse(res.result as string) as StudyTimeResponse;
+                this.dayTotal = data.total_duration ?? 0;
+                console.log("【日时长】解析结果：", this.dayTotal);
+            }
+        }
+        catch (err) {
+            console.error("【日时长】请求失败：", JSON.stringify(err));
+        }
+        finally {
+            httpRequest.destroy();
+        }
+    }
+    async fetchWeekTotal(token: string) {
+        const now = new Date();
+        const y = now.getFullYear();
+        const m = now.getMonth() + 1;
+        const d = now.getDate();
+        let httpRequest = http.createHttp();
+        try {
+            console.log("【周时长】开始请求");
+            const res = await httpRequest.request(`https://designcompetition-production.up.railway.app/api/user/study_time/week?year=${y}&month=${m}&day=${d}`, {
+                method: http.RequestMethod.GET,
+                header: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`
+                }
+            });
+            console.log("【周时长】响应码：", res.responseCode);
+            console.log("【周时长】返回数据：", res.result);
+            if (res.responseCode === 200) {
+                const data = JSON.parse(res.result as string) as StudyTimeResponse;
+                this.weekTotal = data.total_duration ?? 0;
+                console.log("【周时长】解析结果：", this.weekTotal);
+            }
+        }
+        catch (err) {
+            console.error("【周时长】请求失败：", JSON.stringify(err));
+        }
+        finally {
+            httpRequest.destroy();
+        }
+    }
+    async fetchMonthTotal(token: string) {
+        const now = new Date();
+        const y = now.getFullYear();
+        const m = now.getMonth() + 1;
+        let httpRequest = http.createHttp();
+        try {
+            console.log("【月时长】开始请求");
+            const res = await httpRequest.request(`https://designcompetition-production.up.railway.app/api/user/study_time/month?year=${y}&month=${m}`, {
+                method: http.RequestMethod.GET,
+                header: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`
+                }
+            });
+            console.log("【月时长】响应码：", res.responseCode);
+            console.log("【月时长】返回数据：", res.result);
+            if (res.responseCode === 200) {
+                const data = JSON.parse(res.result as string) as StudyTimeResponse;
+                this.monthTotal = data.total_duration ?? 0;
+                console.log("【月时长】解析结果：", this.monthTotal);
+            }
+        }
+        catch (err) {
+            console.error("【月时长】请求失败：", JSON.stringify(err));
+        }
+        finally {
+            httpRequest.destroy();
+        }
+    }
+    async aboutToAppear() {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = now.getMonth() + 1;
+        const day = now.getDate();
+        try {
+            this.isLoading = true;
+            this.errorMsg = '';
+            const pageContext = getContext() as common.UIAbilityContext;
+            const pref = await dataPreferences.getPreferences(pageContext, 'user_info');
+            const userToken = pref.getSync('token', '') as string;
+            if (!userToken) {
+                promptAction.showToast({ message: '请先登录' });
+                return;
+            }
+            const taskData = await fetchDailyTasks(year, month, day, userToken);
+            // 把这行改成：
+            console.log("【今日待办】后端接口返回原始数据：", JSON.stringify(taskData));
+            this.todos = taskData.tasks.map((t): TodoItem => ({
+                id: t.id,
+                content: t.title,
+                done: t.status === 'DONE',
+                category: undefined,
+                plannedHours: undefined,
+                priority: t.priority
+            }));
+            await Promise.all([
+                this.fetchUserGoalProgress(userToken),
+                this.fetchDayTotal(userToken),
+                this.fetchWeekTotal(userToken),
+                this.fetchMonthTotal(userToken),
+                this.fetchWeeklyCompletionRate(userToken),
+                this.fetchDailyGpa(userToken)
+            ]);
+            this.updateDynamicData();
+        }
+        catch (error) {
+            this.errorMsg = '加载失败';
+            console.error('初始化失败', error);
+        }
+        finally {
+            this.isLoading = false;
+        }
+    }
+    updateDynamicData() {
+        if (this.durationTab === 'day') {
+            this.totalHours = this.dayTotal;
+        }
+        else if (this.durationTab === 'week') {
+            this.totalHours = this.weekTotal;
+        }
+        else {
+            this.totalHours = this.monthTotal;
+        }
+    }
+    AddTaskDialog(parent = null) {
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            If.create();
+            if (this.showAddTaskDialog) {
+                this.ifElseBranchUpdateFunction(0, () => {
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Stack.create();
+                        Stack.debugLine("entry/src/main/ets/pages/Index.ets(429:7)", "entry");
+                        Stack.width('100%');
+                        Stack.height('100%');
+                    }, Stack);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Row.create();
+                        Row.debugLine("entry/src/main/ets/pages/Index.ets(430:9)", "entry");
+                        Row.width('100%');
+                        Row.height('100%');
+                        Row.backgroundColor('#00367692');
+                        Row.onClick(() => {
+                            this.showAddTaskDialog = false;
+                            this.newTaskInput = '';
+                        });
+                    }, Row);
+                    Row.pop();
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Column.create({ space: 16 });
+                        Column.debugLine("entry/src/main/ets/pages/Index.ets(438:9)", "entry");
+                        Column.width('90%');
+                        Column.padding(20);
+                        Column.backgroundColor(Color.White);
+                        Column.borderRadius(16);
+                    }, Column);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Text.create("添加新任务");
+                        Text.debugLine("entry/src/main/ets/pages/Index.ets(439:11)", "entry");
+                        Text.fontSize(18);
+                        Text.fontWeight(FontWeight.Medium);
+                    }, Text);
+                    Text.pop();
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        TextInput.create({ text: this.newTaskInput, placeholder: '输入任务名称' });
+                        TextInput.debugLine("entry/src/main/ets/pages/Index.ets(441:11)", "entry");
+                        TextInput.width('100%');
+                        TextInput.height(44);
+                        TextInput.border({ width: 1, color: '#E5E7EB' });
+                        TextInput.borderRadius(8);
+                        TextInput.backgroundColor('#ffe1e2e3');
+                        TextInput.margin({ top: 16 });
+                        TextInput.onChange((value: string) => {
+                            this.newTaskInput = value;
+                        });
+                    }, TextInput);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Row.create({ space: 16 });
+                        Row.debugLine("entry/src/main/ets/pages/Index.ets(450:11)", "entry");
+                    }, Row);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Button.createWithLabel("取消");
+                        Button.debugLine("entry/src/main/ets/pages/Index.ets(451:13)", "entry");
+                        Button.width(100);
+                        Button.height(44);
+                        Button.backgroundColor('#ffe9f0fc');
+                        Button.fontColor('#374151');
+                        Button.onClick(() => {
+                            this.showAddTaskDialog = false;
+                            this.newTaskInput = '';
+                        });
+                    }, Button);
+                    Button.pop();
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Button.createWithLabel("添加");
+                        Button.debugLine("entry/src/main/ets/pages/Index.ets(457:13)", "entry");
+                        Button.width(100);
+                        Button.height(44);
+                        Button.backgroundColor('#2563EB');
+                        Button.onClick(() => {
+                            if (this.newTaskInput.trim() === '')
+                                return;
+                            this.todos.push({
+                                id: Date.now(),
+                                content: this.newTaskInput,
+                                done: false
+                            });
+                            this.showAddTaskDialog = false;
+                            this.updateDynamicData();
+                        });
+                    }, Button);
+                    Button.pop();
+                    Row.pop();
+                    Column.pop();
+                    Stack.pop();
+                });
+            }
+            else {
+                this.ifElseBranchUpdateFunction(1, () => {
+                });
+            }
+        }, If);
+        If.pop();
+    }
+    MethodDetailDialog(parent = null) {
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            If.create();
+            if (this.showMethodDetail) {
+                this.ifElseBranchUpdateFunction(0, () => {
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Stack.create();
+                        Stack.debugLine("entry/src/main/ets/pages/Index.ets(480:7)", "entry");
+                        Stack.width('100%');
+                        Stack.height('100%');
+                        Stack.position({ x: 0, y: 0 });
+                    }, Stack);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Row.create();
+                        Row.debugLine("entry/src/main/ets/pages/Index.ets(481:9)", "entry");
+                        Row.width('100%');
+                        Row.height('100%');
+                        Row.backgroundColor('#00000040');
+                        Row.onClick(() => {
+                            this.showMethodDetail = false;
+                        });
+                    }, Row);
+                    Row.pop();
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Column.create();
+                        Column.debugLine("entry/src/main/ets/pages/Index.ets(489:9)", "entry");
+                        Column.width('85%');
+                        Column.padding(24);
+                        Column.backgroundColor('#ffeaf6f7');
+                        Column.borderRadius(20);
+                        Column.shadow({ radius: 20, color: '#00000015', offsetX: 0, offsetY: 4 });
+                    }, Column);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Row.create();
+                        Row.debugLine("entry/src/main/ets/pages/Index.ets(490:11)", "entry");
+                        Row.justifyContent(FlexAlign.SpaceBetween);
+                        Row.width('100%');
+                        Row.margin({ bottom: 16 });
+                    }, Row);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Text.create("学习方法详情");
+                        Text.debugLine("entry/src/main/ets/pages/Index.ets(491:13)", "entry");
+                        Text.fontSize(18);
+                        Text.fontWeight(FontWeight.Bold);
+                        Text.fontColor('#1E293B');
+                    }, Text);
+                    Text.pop();
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Image.create({ "id": 16777246, "type": 20000, params: [], "bundleName": "com.example.educationapplication", "moduleName": "entry" });
+                        Image.debugLine("entry/src/main/ets/pages/Index.ets(495:13)", "entry");
+                        Image.width(20);
+                        Image.height(20);
+                        Image.fillColor('#64748B');
+                        Image.onClick(() => {
+                            this.showMethodDetail = false;
+                        });
+                    }, Image);
+                    Row.pop();
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Text.create(this.currentMethodDetail);
+                        Text.debugLine("entry/src/main/ets/pages/Index.ets(507:11)", "entry");
+                        Text.fontSize(16);
+                        Text.fontColor('#475569');
+                        Text.lineHeight(26);
+                        Text.width('100%');
+                        Text.margin({ bottom: 24 });
+                    }, Text);
+                    Text.pop();
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Button.createWithLabel("我知道了");
+                        Button.debugLine("entry/src/main/ets/pages/Index.ets(514:11)", "entry");
+                        Button.width('100%');
+                        Button.height(48);
+                        Button.backgroundColor('#ff1076ab');
+                        Button.fontColor('#FFFFFF');
+                        Button.fontSize(16);
+                        Button.fontWeight(FontWeight.Medium);
+                        Button.borderRadius(12);
+                        Button.onClick(() => {
+                            this.showMethodDetail = false;
+                        });
+                    }, Button);
+                    Button.pop();
+                    Column.pop();
+                    Stack.pop();
+                });
+            }
+            else {
+                this.ifElseBranchUpdateFunction(1, () => {
+                });
+            }
+        }, If);
+        If.pop();
+    }
+    initialRender() {
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Stack.create();
+            Stack.debugLine("entry/src/main/ets/pages/Index.ets(539:5)", "entry");
+        }, Stack);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create();
+            Column.debugLine("entry/src/main/ets/pages/Index.ets(540:7)", "entry");
+            Column.expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP]);
+            Column.width('100%');
+            Column.height('100%');
+            Column.backgroundImage({ "id": 16777261, "type": 20000, params: [], "bundleName": "com.example.educationapplication", "moduleName": "entry" });
+            Column.backgroundImageSize(ImageSize.Cover);
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Row.create();
+            Row.debugLine("entry/src/main/ets/pages/Index.ets(541:9)", "entry");
+            Row.width('100%');
+            Row.height(60);
+            Row.justifyContent(FlexAlign.SpaceBetween);
+            Row.padding({ left: 16, right: 16 });
+            Row.margin({ bottom: 5 });
+        }, Row);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Image.create({ "id": 16777254, "type": 20000, params: [], "bundleName": "com.example.educationapplication", "moduleName": "entry" });
+            Image.debugLine("entry/src/main/ets/pages/Index.ets(542:11)", "entry");
+            Image.width(30);
+            Image.height(30);
+            Image.onClick(() => {
+                router.pushUrl({ url: 'pages/EmoPage' });
+            });
+        }, Image);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            TextInput.create({ text: '心情日记  |   智能AI' });
+            TextInput.debugLine("entry/src/main/ets/pages/Index.ets(548:11)", "entry");
+            TextInput.width('60%');
+            TextInput.height(40);
+            TextInput.border({ width: 1, color: '#CCCCCC' });
+            TextInput.borderRadius(20);
+            TextInput.padding({ left: 20, right: 16 });
+            TextInput.fontSize(16);
+        }, TextInput);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Image.create({ "id": 16777249, "type": 20000, params: [], "bundleName": "com.example.educationapplication", "moduleName": "entry" });
+            Image.debugLine("entry/src/main/ets/pages/Index.ets(555:11)", "entry");
+            Image.width(30);
+            Image.height(30);
+            Image.onClick(() => {
+                this.showAIChatDialog = true;
+            });
+        }, Image);
+        Row.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Swiper.create();
+            Swiper.debugLine("entry/src/main/ets/pages/Index.ets(568:9)", "entry");
+            Swiper.width('100%');
+            Swiper.height(146);
+            Swiper.autoPlay(true);
+            Swiper.loop(true);
+            Swiper.indicator(true);
+            Swiper.borderRadius(16);
+            Swiper.margin({ bottom: 16 });
+        }, Swiper);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            ForEach.create();
+            const forEachItemGenFunction = (_item, index: number) => {
+                const item = _item;
+                this.observeComponentCreation2((elmtId, isInitialRender) => {
+                    Image.create(item.image);
+                    Image.debugLine("entry/src/main/ets/pages/Index.ets(570:13)", "entry");
+                    Image.width('100%');
+                    Image.height(86);
+                    Image.borderRadius(16);
+                    Image.objectFit(ImageFit.Cover);
+                    Image.onClick(() => {
+                        this.currentMethodDetail = item.detail;
+                        this.showMethodDetail = true;
+                    });
+                }, Image);
+            };
+            this.forEachUpdateFunction(elmtId, this.carouselItems, forEachItemGenFunction, undefined, true, false);
+        }, ForEach);
+        ForEach.pop();
+        Swiper.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create({ space: 10 });
+            Column.debugLine("entry/src/main/ets/pages/Index.ets(589:9)", "entry");
+            Column.width('100%');
+            Column.padding(16);
+            Column.backgroundColor(Color.White);
+            Column.borderRadius(16);
+            Column.margin({ bottom: 16 });
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Row.create();
+            Row.debugLine("entry/src/main/ets/pages/Index.ets(590:11)", "entry");
+        }, Row);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create("今日学习概览");
+            Text.debugLine("entry/src/main/ets/pages/Index.ets(591:13)", "entry");
+            Text.fontSize(17);
+            Text.fontWeight(FontWeight.Medium);
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Blank.create();
+            Blank.debugLine("entry/src/main/ets/pages/Index.ets(593:13)", "entry");
+        }, Blank);
+        Blank.pop();
+        Row.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Progress.create({ value: this.todayProgress, total: 100, type: ProgressType.Linear });
+            Progress.debugLine("entry/src/main/ets/pages/Index.ets(598:11)", "entry");
+            Progress.width('100%');
+            Progress.height(12);
+            Progress.backgroundColor('#F3F4F6');
+            Progress.color('#3B82F6');
+            Progress.borderRadius(4);
+        }, Progress);
+        Column.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Scroll.create();
+            Scroll.debugLine("entry/src/main/ets/pages/Index.ets(604:9)", "entry");
+            Scroll.layoutWeight(1);
+        }, Scroll);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Flex.create({ justifyContent: FlexAlign.SpaceBetween, wrap: FlexWrap.Wrap });
+            Flex.debugLine("entry/src/main/ets/pages/Index.ets(605:11)", "entry");
+        }, Flex);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create({ space: 12 });
+            Column.debugLine("entry/src/main/ets/pages/Index.ets(606:13)", "entry");
+            Column.width('48%');
+            Column.padding(16);
+            Column.backgroundColor('#ffe2edfc');
+            Column.borderRadius(16);
+            Column.margin({ bottom: 12 });
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Row.create();
+            Row.debugLine("entry/src/main/ets/pages/Index.ets(607:15)", "entry");
+            Row.onClick(() => {
+                // ✅ 日志加在这里，完全合法
+                console.log("【今日待办】点击展开/收起：", !this.showTodo);
+                this.showTodo = !this.showTodo;
+            });
+        }, Row);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create({ space: 4 });
+            Column.debugLine("entry/src/main/ets/pages/Index.ets(608:17)", "entry");
+            Column.layoutWeight(1);
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create("今日待办");
+            Text.debugLine("entry/src/main/ets/pages/Index.ets(609:19)", "entry");
+            Text.fontSize(15);
+            Text.fontWeight(FontWeight.Medium);
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            If.create();
+            if (this.isLoading) {
+                this.ifElseBranchUpdateFunction(0, () => {
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Text.create("加载中...");
+                        Text.debugLine("entry/src/main/ets/pages/Index.ets(613:21)", "entry");
+                        Text.fontSize(13);
+                        Text.fontColor('#4B5563');
+                    }, Text);
+                    Text.pop();
+                });
+            }
+            else if (this.errorMsg) {
+                this.ifElseBranchUpdateFunction(1, () => {
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Text.create(this.errorMsg);
+                        Text.debugLine("entry/src/main/ets/pages/Index.ets(617:21)", "entry");
+                        Text.fontSize(13);
+                        Text.fontColor('#EF4444');
+                    }, Text);
+                    Text.pop();
+                });
+            }
+            else {
+                this.ifElseBranchUpdateFunction(2, () => {
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Text.create(`${this.todos.filter(t => !t.done).length} 项`);
+                        Text.debugLine("entry/src/main/ets/pages/Index.ets(621:21)", "entry");
+                        Text.fontSize(13);
+                        Text.fontColor('#4B5563');
+                    }, Text);
+                    Text.pop();
+                });
+            }
+        }, If);
+        If.pop();
+        Column.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create(this.showTodo ? "收起 ▲" : "展开 ▼");
+            Text.debugLine("entry/src/main/ets/pages/Index.ets(627:17)", "entry");
+            Text.fontSize(12);
+            Text.fontColor('#2563EB');
+        }, Text);
+        Text.pop();
+        Row.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            If.create();
+            if (this.isLoading) {
+                this.ifElseBranchUpdateFunction(0, () => {
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Text.create("📝 正在加载任务...");
+                        Text.debugLine("entry/src/main/ets/pages/Index.ets(638:17)", "entry");
+                        Text.fontSize(14);
+                        Text.fontColor('#9CA3AF');
+                        Text.width('100%');
+                        Text.textAlign(TextAlign.Center);
+                        Text.padding(20);
+                    }, Text);
+                    Text.pop();
+                });
+            }
+            else if (this.errorMsg) {
+                this.ifElseBranchUpdateFunction(1, () => {
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Column.create({ space: 8 });
+                        Column.debugLine("entry/src/main/ets/pages/Index.ets(645:17)", "entry");
+                        Column.width('100%');
+                        Column.padding(20);
+                    }, Column);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Text.create(this.errorMsg);
+                        Text.debugLine("entry/src/main/ets/pages/Index.ets(646:19)", "entry");
+                        Text.fontSize(14);
+                        Text.fontColor('#EF4444');
+                    }, Text);
+                    Text.pop();
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Button.createWithLabel("重试");
+                        Button.debugLine("entry/src/main/ets/pages/Index.ets(649:19)", "entry");
+                        Button.width(80);
+                        Button.height(32);
+                        Button.backgroundColor('#2563EB');
+                        Button.onClick(async () => {
+                            await this.aboutToAppear();
+                        });
+                    }, Button);
+                    Button.pop();
+                    Column.pop();
+                });
+            }
+            else if (this.showTodo) {
+                this.ifElseBranchUpdateFunction(2, () => {
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Scroll.create();
+                        Scroll.debugLine("entry/src/main/ets/pages/Index.ets(660:17)", "entry");
+                        Scroll.height(180);
+                    }, Scroll);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Column.create({ space: 8 });
+                        Column.debugLine("entry/src/main/ets/pages/Index.ets(661:19)", "entry");
+                    }, Column);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        ForEach.create();
+                        const forEachItemGenFunction = _item => {
+                            const item = _item;
+                            this.observeComponentCreation2((elmtId, isInitialRender) => {
+                                Row.create();
+                                Row.debugLine("entry/src/main/ets/pages/Index.ets(663:23)", "entry");
+                                Row.width('100%');
+                                Row.padding(12);
+                                Row.backgroundColor('#EFF6FF');
+                                Row.borderRadius(10);
+                            }, Row);
+                            this.observeComponentCreation2((elmtId, isInitialRender) => {
+                                Checkbox.create();
+                                Checkbox.debugLine("entry/src/main/ets/pages/Index.ets(664:25)", "entry");
+                                Checkbox.select(item.done);
+                                Checkbox.onChange((v: boolean) => {
+                                    console.log("【今日待办】勾选任务：", item.content, " → 完成：", v);
+                                    item.done = v;
+                                    this.updateDynamicData();
+                                });
+                            }, Checkbox);
+                            Checkbox.pop();
+                            this.observeComponentCreation2((elmtId, isInitialRender) => {
+                                Text.create(item.content);
+                                Text.debugLine("entry/src/main/ets/pages/Index.ets(672:25)", "entry");
+                                Text.fontSize(15);
+                                Text.fontColor(item.done ? '#9CA3AF' : '#1F2937');
+                                Text.decoration({ type: item.done ? TextDecorationType.LineThrough : TextDecorationType.None });
+                                Text.layoutWeight(1);
+                            }, Text);
+                            Text.pop();
+                            this.observeComponentCreation2((elmtId, isInitialRender) => {
+                                Text.create("🗑️");
+                                Text.debugLine("entry/src/main/ets/pages/Index.ets(678:25)", "entry");
+                                Text.width(20);
+                                Text.height(20);
+                                Text.onClick(() => {
+                                    console.log("【今日待办】删除任务：", item.content);
+                                    this.todos = this.todos.filter(t => t.id !== item.id);
+                                    this.updateDynamicData();
+                                });
+                            }, Text);
+                            Text.pop();
+                            Row.pop();
+                        };
+                        this.forEachUpdateFunction(elmtId, this.todos, forEachItemGenFunction);
+                    }, ForEach);
+                    ForEach.pop();
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Button.createWithLabel("添加任务");
+                        Button.debugLine("entry/src/main/ets/pages/Index.ets(693:21)", "entry");
+                        Button.width('100%');
+                        Button.height(44);
+                        Button.backgroundColor('#2563EB');
+                        Button.onClick(() => {
+                            this.showAddTaskDialog = true;
+                        });
+                    }, Button);
+                    Button.pop();
+                    Column.pop();
+                    Scroll.pop();
+                });
+            }
+            else {
+                this.ifElseBranchUpdateFunction(3, () => {
+                });
+            }
+        }, If);
+        If.pop();
+        Column.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create({ space: 12 });
+            Column.debugLine("entry/src/main/ets/pages/Index.ets(707:13)", "entry");
+            Column.width('48%');
+            Column.padding(16);
+            Column.backgroundColor('#ffe1fcef');
+            Column.borderRadius(16);
+            Column.margin({ bottom: 12 });
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Row.create();
+            Row.debugLine("entry/src/main/ets/pages/Index.ets(708:15)", "entry");
+            Row.onClick(() => { this.showWeekRate = !this.showWeekRate; });
+        }, Row);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create({ space: 4 });
+            Column.debugLine("entry/src/main/ets/pages/Index.ets(709:17)", "entry");
+            Column.layoutWeight(1);
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create("本周完成率");
+            Text.debugLine("entry/src/main/ets/pages/Index.ets(710:19)", "entry");
+            Text.fontSize(15);
+            Text.fontWeight(FontWeight.Medium);
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create(`${this.finishRate}%`);
+            Text.debugLine("entry/src/main/ets/pages/Index.ets(711:19)", "entry");
+            Text.fontSize(13);
+            Text.fontColor('#4B5563');
+        }, Text);
+        Text.pop();
+        Column.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create(this.showWeekRate ? "收起 ▲" : "展开 ▼");
+            Text.debugLine("entry/src/main/ets/pages/Index.ets(714:17)", "entry");
+            Text.fontSize(12);
+            Text.fontColor('#059669');
+        }, Text);
+        Text.pop();
+        Row.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            If.create();
+            if (this.showWeekRate) {
+                this.ifElseBranchUpdateFunction(0, () => {
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Progress.create({ value: this.finishRate, total: 100, type: ProgressType.Linear });
+                        Progress.debugLine("entry/src/main/ets/pages/Index.ets(719:17)", "entry");
+                        Progress.width('100%');
+                        Progress.height(8);
+                        Progress.backgroundColor('#D1FAE5');
+                        Progress.color('#10B981');
+                        Progress.borderRadius(4);
+                    }, Progress);
+                });
+            }
+            else {
+                this.ifElseBranchUpdateFunction(1, () => {
+                });
+            }
+        }, If);
+        If.pop();
+        Column.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create({ space: 12 });
+            Column.debugLine("entry/src/main/ets/pages/Index.ets(727:13)", "entry");
+            Column.width('48%');
+            Column.padding(16);
+            Column.backgroundColor('#FFFBEB');
+            Column.borderRadius(16);
+            Column.margin({ bottom: 12 });
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Row.create();
+            Row.debugLine("entry/src/main/ets/pages/Index.ets(728:15)", "entry");
+            Row.onClick(() => { this.showGpa = !this.showGpa; });
+        }, Row);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create({ space: 4 });
+            Column.debugLine("entry/src/main/ets/pages/Index.ets(729:17)", "entry");
+            Column.layoutWeight(1);
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create("当前GPA");
+            Text.debugLine("entry/src/main/ets/pages/Index.ets(730:19)", "entry");
+            Text.fontSize(15);
+            Text.fontWeight(FontWeight.Medium);
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create(`${this.gpaValue}`);
+            Text.debugLine("entry/src/main/ets/pages/Index.ets(731:19)", "entry");
+            Text.fontSize(13);
+            Text.fontColor('#4B5563');
+        }, Text);
+        Text.pop();
+        Column.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create(this.showGpa ? "收起 ▲" : "展开 ▼");
+            Text.debugLine("entry/src/main/ets/pages/Index.ets(734:17)", "entry");
+            Text.fontSize(12);
+            Text.fontColor('#D97706');
+        }, Text);
+        Text.pop();
+        Row.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            If.create();
+            if (this.showGpa) {
+                this.ifElseBranchUpdateFunction(0, () => {
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Column.create();
+                        Column.debugLine("entry/src/main/ets/pages/Index.ets(739:17)", "entry");
+                    }, Column);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Stack.create();
+                        Stack.debugLine("entry/src/main/ets/pages/Index.ets(740:19)", "entry");
+                        Stack.width(70);
+                        Stack.height(70);
+                    }, Stack);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Progress.create({ value: this.gpaValue, total: 4.0, type: ProgressType.Ring });
+                        Progress.debugLine("entry/src/main/ets/pages/Index.ets(741:21)", "entry");
+                        Progress.width(70);
+                        Progress.height(70);
+                        Progress.backgroundColor('#FFFBEB');
+                        Progress.color('#F59E0B');
+                    }, Progress);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Text.create(this.gpaValue.toString());
+                        Text.debugLine("entry/src/main/ets/pages/Index.ets(743:21)", "entry");
+                        Text.fontSize(18);
+                        Text.fontWeight(FontWeight.Medium);
+                        Text.fontColor('#F59E0B');
+                    }, Text);
+                    Text.pop();
+                    Stack.pop();
+                    Column.pop();
+                });
+            }
+            else {
+                this.ifElseBranchUpdateFunction(1, () => {
+                });
+            }
+        }, If);
+        If.pop();
+        Column.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create({ space: 12 });
+            Column.debugLine("entry/src/main/ets/pages/Index.ets(752:13)", "entry");
+            Column.width('48%');
+            Column.padding(16);
+            Column.backgroundColor('#FEF2F2');
+            Column.borderRadius(16);
+            Column.margin({ bottom: 12 });
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Row.create();
+            Row.debugLine("entry/src/main/ets/pages/Index.ets(753:15)", "entry");
+            Row.onClick(() => { this.showGoal = !this.showGoal; });
+        }, Row);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create({ space: 4 });
+            Column.debugLine("entry/src/main/ets/pages/Index.ets(754:17)", "entry");
+            Column.layoutWeight(1);
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create("目标进度");
+            Text.debugLine("entry/src/main/ets/pages/Index.ets(755:19)", "entry");
+            Text.fontSize(15);
+            Text.fontWeight(FontWeight.Medium);
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create(`${this.overallCompletionRate}%`);
+            Text.debugLine("entry/src/main/ets/pages/Index.ets(756:19)", "entry");
+            Text.fontSize(13);
+            Text.fontColor('#4B5563');
+        }, Text);
+        Text.pop();
+        Column.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create(this.showGoal ? "收起 ▲" : "展开 ▼");
+            Text.debugLine("entry/src/main/ets/pages/Index.ets(759:17)", "entry");
+            Text.fontSize(12);
+            Text.fontColor('#DC2626');
+        }, Text);
+        Text.pop();
+        Row.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            If.create();
+            if (this.showGoal) {
+                this.ifElseBranchUpdateFunction(0, () => {
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Column.create({ space: 4 });
+                        Column.debugLine("entry/src/main/ets/pages/Index.ets(764:17)", "entry");
+                    }, Column);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Stack.create();
+                        Stack.debugLine("entry/src/main/ets/pages/Index.ets(765:19)", "entry");
+                        Stack.width(70);
+                        Stack.height(70);
+                    }, Stack);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Progress.create({
+                            value: this.overallCompletionRate,
+                            total: 100,
+                            type: ProgressType.ScaleRing
+                        });
+                        Progress.debugLine("entry/src/main/ets/pages/Index.ets(766:21)", "entry");
+                        Progress.width(70);
+                        Progress.height(70);
+                        Progress.backgroundColor('#FEF2F2');
+                        Progress.color('#EF4444');
+                    }, Progress);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Text.create(this.overallCompletionRate + "%");
+                        Text.debugLine("entry/src/main/ets/pages/Index.ets(774:21)", "entry");
+                        Text.fontSize(18);
+                        Text.fontWeight(FontWeight.Medium);
+                        Text.fontColor('#EF4444');
+                    }, Text);
+                    Text.pop();
+                    Stack.pop();
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        ForEach.create();
+                        const forEachItemGenFunction = _item => {
+                            const item = _item;
+                            this.observeComponentCreation2((elmtId, isInitialRender) => {
+                                Row.create();
+                                Row.debugLine("entry/src/main/ets/pages/Index.ets(782:21)", "entry");
+                                Row.margin({ top: 3 });
+                            }, Row);
+                            this.observeComponentCreation2((elmtId, isInitialRender) => {
+                                Progress.create({
+                                    value: item.completion_percentage,
+                                    total: 100,
+                                    type: ProgressType.Linear
+                                });
+                                Progress.debugLine("entry/src/main/ets/pages/Index.ets(783:23)", "entry");
+                                Progress.width(70);
+                                Progress.height(6);
+                                Progress.backgroundColor('#FEE2E2');
+                                Progress.color('#EF4444');
+                                Progress.borderRadius(3);
+                            }, Progress);
+                            this.observeComponentCreation2((elmtId, isInitialRender) => {
+                                Text.create(item.goal_title);
+                                Text.debugLine("entry/src/main/ets/pages/Index.ets(792:23)", "entry");
+                                Text.fontSize(10);
+                                Text.layoutWeight(1);
+                            }, Text);
+                            Text.pop();
+                            this.observeComponentCreation2((elmtId, isInitialRender) => {
+                                Text.create(item.completion_percentage + "%");
+                                Text.debugLine("entry/src/main/ets/pages/Index.ets(795:23)", "entry");
+                                Text.fontSize(12);
+                                Text.margin({ left: 6 });
+                            }, Text);
+                            Text.pop();
+                            Row.pop();
+                        };
+                        this.forEachUpdateFunction(elmtId, this.goalProgressList, forEachItemGenFunction);
+                    }, ForEach);
+                    ForEach.pop();
+                    Column.pop();
+                });
+            }
+            else {
+                this.ifElseBranchUpdateFunction(1, () => {
+                });
+            }
+        }, If);
+        If.pop();
+        Column.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create({ space: 12 });
+            Column.debugLine("entry/src/main/ets/pages/Index.ets(805:13)", "entry");
+            Column.width('100%');
+            Column.padding(16);
+            Column.backgroundColor('#ffefe8f8');
+            Column.borderRadius(16);
+            Column.margin({ bottom: 12 });
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Row.create();
+            Row.debugLine("entry/src/main/ets/pages/Index.ets(806:15)", "entry");
+            Row.onClick(() => { this.showDuration = !this.showDuration; });
+        }, Row);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create({ space: 4 });
+            Column.debugLine("entry/src/main/ets/pages/Index.ets(807:17)", "entry");
+            Column.layoutWeight(1);
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create("学习时长统计");
+            Text.debugLine("entry/src/main/ets/pages/Index.ets(808:19)", "entry");
+            Text.fontSize(15);
+            Text.fontWeight(FontWeight.Medium);
+        }, Text);
+        Text.pop();
+        Column.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create(this.showDuration ? "收起 ▲" : "展开 ▼");
+            Text.debugLine("entry/src/main/ets/pages/Index.ets(811:17)", "entry");
+            Text.fontSize(12);
+            Text.fontColor('#9333EA');
+        }, Text);
+        Text.pop();
+        Row.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Row.create({ space: 10 });
+            Row.debugLine("entry/src/main/ets/pages/Index.ets(815:15)", "entry");
+            Row.justifyContent(FlexAlign.Center);
+        }, Row);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create('日');
+            Text.debugLine("entry/src/main/ets/pages/Index.ets(816:17)", "entry");
+            Text.padding({ left: 12, right: 12, top: 5, bottom: 5 });
+            Text.backgroundColor(this.durationTab === 'day' ? '#9333EA' : '#FAF5FF');
+            Text.fontColor(this.durationTab === 'day' ? Color.White : '#6B21A8');
+            Text.borderRadius(14);
+            Text.onClick(() => {
+                this.durationTab = 'day';
+                this.updateDynamicData();
+            });
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create('周');
+            Text.debugLine("entry/src/main/ets/pages/Index.ets(826:17)", "entry");
+            Text.padding({ left: 12, right: 12, top: 5, bottom: 5 });
+            Text.backgroundColor(this.durationTab === 'week' ? '#9333EA' : '#FAF5FF');
+            Text.fontColor(this.durationTab === 'week' ? Color.White : '#6B21A8');
+            Text.borderRadius(14);
+            Text.onClick(() => {
+                this.durationTab = 'week';
+                this.updateDynamicData();
+            });
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create('月');
+            Text.debugLine("entry/src/main/ets/pages/Index.ets(836:17)", "entry");
+            Text.padding({ left: 12, right: 12, top: 5, bottom: 5 });
+            Text.backgroundColor(this.durationTab === 'month' ? '#9333EA' : '#FAF5FF');
+            Text.fontColor(this.durationTab === 'month' ? Color.White : '#6B21A8');
+            Text.borderRadius(14);
+            Text.onClick(() => {
+                this.durationTab = 'month';
+                this.updateDynamicData();
+            });
+        }, Text);
+        Text.pop();
+        Row.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create({ space: 4 });
+            Column.debugLine("entry/src/main/ets/pages/Index.ets(848:15)", "entry");
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create(`${this.durationTab === 'day' ? '今日' : this.durationTab === 'week' ? '本周' : '本月'} ${this.totalHours.toFixed(1)}h`);
+            Text.debugLine("entry/src/main/ets/pages/Index.ets(849:17)", "entry");
+            Text.fontSize(13);
+            Text.fontColor('#4B5563');
+        }, Text);
+        Text.pop();
+        Column.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            If.create();
+            if (this.showDuration) {
+                this.ifElseBranchUpdateFunction(0, () => {
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Text.create(`${this.durationTab === 'day' ? '今日' : this.durationTab === 'week' ? '本周' : '本月'} 总学习时长：${this.totalHours.toFixed(1)} 小时`);
+                        Text.debugLine("entry/src/main/ets/pages/Index.ets(853:17)", "entry");
+                        Text.fontSize(16);
+                        Text.fontColor('#4B5563');
+                        Text.fontWeight(FontWeight.Medium);
+                        Text.width('100%');
+                        Text.textAlign(TextAlign.Center);
+                        Text.padding({ top: 10 });
+                    }, Text);
+                    Text.pop();
+                });
+            }
+            else {
+                this.ifElseBranchUpdateFunction(1, () => {
+                });
+            }
+        }, If);
+        If.pop();
+        Column.pop();
+        Flex.pop();
+        Scroll.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Row.create();
+            Row.debugLine("entry/src/main/ets/pages/Index.ets(868:9)", "entry");
+            Row.width('100%');
+            Row.height(60);
+            Row.backgroundColor('#ffff');
+        }, Row);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create({ space: 4 });
+            Column.debugLine("entry/src/main/ets/pages/Index.ets(869:11)", "entry");
+            Column.layoutWeight(1);
+            Column.onClick(() => { this.currentTab = 'home'; });
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create("🏠");
+            Text.debugLine("entry/src/main/ets/pages/Index.ets(870:13)", "entry");
+            Text.fontSize(24);
+            Text.fontColor(this.currentTab === 'home' ? '#2563EB' : '#6B7280');
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create("首页");
+            Text.debugLine("entry/src/main/ets/pages/Index.ets(871:13)", "entry");
+            Text.fontColor(this.currentTab === 'home' ? '#2563EB' : '#6B7280');
+            Text.fontSize(14);
+        }, Text);
+        Text.pop();
+        Column.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create({ space: 4 });
+            Column.debugLine("entry/src/main/ets/pages/Index.ets(878:11)", "entry");
+            Column.layoutWeight(1);
+            Column.onClick(() => {
+                this.currentTab = 'plan';
+                router.pushUrl({ url: 'pages/GoalsPage' });
+            });
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create("📝");
+            Text.debugLine("entry/src/main/ets/pages/Index.ets(879:13)", "entry");
+            Text.fontSize(24);
+            Text.fontColor(this.currentTab === 'plan' ? '#2563EB' : '#6B7280');
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create("待办");
+            Text.debugLine("entry/src/main/ets/pages/Index.ets(880:13)", "entry");
+            Text.fontColor(this.currentTab === 'plan' ? '#2563EB' : '#6B7280');
+            Text.fontSize(14);
+        }, Text);
+        Text.pop();
+        Column.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create({ space: 4 });
+            Column.debugLine("entry/src/main/ets/pages/Index.ets(890:11)", "entry");
+            Column.layoutWeight(1);
+            Column.onClick(() => {
+                this.currentTab = 'recommend';
+                router.pushUrl({ url: 'pages/recommendPage' });
+            });
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create("📅");
+            Text.debugLine("entry/src/main/ets/pages/Index.ets(891:13)", "entry");
+            Text.fontSize(24);
+            Text.fontColor(this.currentTab === 'recommend' ? '#2563EB' : '#6B7280');
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create("推荐");
+            Text.debugLine("entry/src/main/ets/pages/Index.ets(892:13)", "entry");
+            Text.fontColor(this.currentTab === 'recommend' ? '#2563EB' : '#6B7280');
+            Text.fontSize(14);
+        }, Text);
+        Text.pop();
+        Column.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create({ space: 4 });
+            Column.debugLine("entry/src/main/ets/pages/Index.ets(902:11)", "entry");
+            Column.layoutWeight(1);
+            Column.onClick(() => {
+                this.currentTab = 'message';
+                router.pushUrl({ url: 'pages/MessagePage' });
+            });
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create("✉️");
+            Text.debugLine("entry/src/main/ets/pages/Index.ets(903:13)", "entry");
+            Text.fontSize(24);
+            Text.fontColor(this.currentTab === 'message' ? '#2563EB' : '#6B7280');
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create("消息");
+            Text.debugLine("entry/src/main/ets/pages/Index.ets(904:13)", "entry");
+            Text.fontColor(this.currentTab === 'message' ? '#2563EB' : '#6B7280');
+            Text.fontSize(14);
+        }, Text);
+        Text.pop();
+        Column.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create({ space: 4 });
+            Column.debugLine("entry/src/main/ets/pages/Index.ets(914:11)", "entry");
+            Column.layoutWeight(1);
+            Column.onClick(() => {
+                this.currentTab = 'mine';
+                router.pushUrl({ url: 'pages/myPage' });
+            });
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create("👤");
+            Text.debugLine("entry/src/main/ets/pages/Index.ets(915:13)", "entry");
+            Text.fontSize(24);
+            Text.fontColor(this.currentTab === 'mine' ? '#2563EB' : '#6B7280');
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create("我的");
+            Text.debugLine("entry/src/main/ets/pages/Index.ets(916:13)", "entry");
+            Text.fontColor(this.currentTab === 'mine' ? '#2563EB' : '#6B7280');
+            Text.fontSize(14);
+        }, Text);
+        Text.pop();
+        Column.pop();
+        Row.pop();
+        Column.pop();
+        this.AddTaskDialog.bind(this)();
+        this.MethodDetailDialog.bind(this)();
+        {
+            this.observeComponentCreation2((elmtId, isInitialRender) => {
+                if (isInitialRender) {
+                    let componentCall = new AIChatDialog(this, { showDialog: this.__showAIChatDialog }, undefined, elmtId, () => { }, { page: "entry/src/main/ets/pages/Index.ets", line: 936, col: 7 });
+                    ViewPU.create(componentCall);
+                    let paramsLambda = () => {
+                        return {
+                            showDialog: this.showAIChatDialog
+                        };
+                    };
+                    componentCall.paramsGenerator_ = paramsLambda;
+                }
+                else {
+                    this.updateStateVarsOfChildByElmtId(elmtId, {});
+                }
+            }, { name: "AIChatDialog" });
+        }
+        Stack.pop();
+    }
+    rerender() {
+        this.updateDirtyElements();
+    }
+    static getEntryName(): string {
+        return "Index";
+    }
+}
+registerNamedRoute(() => new Index(undefined, {}), "", { bundleName: "com.example.educationapplication", moduleName: "entry", pagePath: "pages/Index", pageFullPath: "entry/src/main/ets/pages/Index", integratedHsp: "false", moduleType: "followWithHap" });

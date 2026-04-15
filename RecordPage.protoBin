@@ -1,0 +1,857 @@
+if (!("finalizeConstruction" in ViewPU.prototype)) {
+    Reflect.set(ViewPU.prototype, "finalizeConstruction", () => { });
+}
+interface GoalsPage_Params {
+    currentTab?: TabType;
+    targetList?: TargetItem[];
+    newTargetTitle?: string;
+    newTargetStart?: string;
+    newTargetEnd?: string;
+    dialogController?: CustomDialogController | null;
+    quickTags?: string[];
+    context?: common.UIAbilityContext | null;
+    isComponentDestroyed?: boolean;
+}
+import router from "@ohos:router";
+import promptAction from "@ohos:promptAction";
+import http from "@ohos:net.http";
+import dataPreferences from "@ohos:data.preferences";
+import type { BusinessError } from "@ohos:base";
+import type common from "@ohos:app.ability.common";
+import { globalContext } from "@normalized:N&&&entry/src/main/ets/entryability/EntryAbility&";
+// ========== 类型定义 ==========
+interface SessionCreateResponse {
+    goal_id: string;
+    goal_summary: string;
+    start_date: string;
+    deadline: string;
+    years: number[];
+}
+// 新增：定义添加目标的返回类型接口
+interface AddTargetResult {
+    success: boolean;
+    goalId?: string;
+}
+interface PlancreateResponse {
+    code: number;
+    msg: string;
+    data: SessionCreateResponse;
+}
+// 新增：点击目标返回的后端详情结构
+interface PlanDetailResponse {
+    plan_id: number;
+    title: string;
+    description: string;
+    task_date: string;
+    priority: string;
+    gpa: string;
+    status: string;
+}
+interface ApiConfig {
+    baseUrl: string;
+    addTarget: string;
+    getTargets: string;
+    getPlanDetail: string; // 新增详情接口
+}
+interface TargetItem {
+    plan_id: string;
+    goal: string;
+    start_date: string;
+    end_date: string;
+    background: Resource;
+}
+interface LoginInfo {
+    userId: string;
+    token: string;
+}
+interface ApiResponse<T> {
+    code: number;
+    msg: string;
+    data?: T;
+}
+interface TargetRequestData {
+    goal: string;
+    start_date: string;
+    end_date: string;
+}
+// ========== 后端接口配置 ==========
+const API_CONFIG: ApiConfig = {
+    baseUrl: 'https://designcompetition-production.up.railway.app/api',
+    addTarget: '/plan/session',
+    getTargets: '/targets',
+    getPlanDetail: '/goals' // 详情接口
+};
+type TabType = 'home' | 'plan' | 'recommend' | 'message' | 'mine';
+class GoalsPage extends ViewPU {
+    constructor(parent, params, __localStorage, elmtId = -1, paramsLambda = undefined, extraInfo) {
+        super(parent, __localStorage, elmtId, extraInfo);
+        if (typeof paramsLambda === "function") {
+            this.paramsGenerator_ = paramsLambda;
+        }
+        this.__currentTab = new ObservedPropertySimplePU('plan', this, "currentTab");
+        this.__targetList = new ObservedPropertyObjectPU([
+            {
+                plan_id: '1',
+                goal: '按➕添加目标',
+                start_date: '2026-3-17',
+                end_date: '2026-3-18',
+                background: { "id": 16777256, "type": 20000, params: [], "bundleName": "com.example.educationapplication", "moduleName": "entry" }
+            },
+            {
+                plan_id: '2',
+                goal: '长按删除目标',
+                start_date: '2026-3-17',
+                end_date: '2026-3-18',
+                background: { "id": 16777244, "type": 20000, params: [], "bundleName": "com.example.educationapplication", "moduleName": "entry" }
+            }
+        ], this, "targetList");
+        this.__newTargetTitle = new ObservedPropertySimplePU('', this, "newTargetTitle");
+        this.__newTargetStart = new ObservedPropertySimplePU('', this, "newTargetStart");
+        this.__newTargetEnd = new ObservedPropertySimplePU('', this, "newTargetEnd");
+        this.dialogController = null;
+        this.quickTags = ['考研', '考公', '四六级', '刷题', '阅读', '运动', '编程'];
+        this.context = null;
+        this.isComponentDestroyed = false;
+        this.setInitiallyProvidedValue(params);
+        this.finalizeConstruction();
+    }
+    setInitiallyProvidedValue(params: GoalsPage_Params) {
+        if (params.currentTab !== undefined) {
+            this.currentTab = params.currentTab;
+        }
+        if (params.targetList !== undefined) {
+            this.targetList = params.targetList;
+        }
+        if (params.newTargetTitle !== undefined) {
+            this.newTargetTitle = params.newTargetTitle;
+        }
+        if (params.newTargetStart !== undefined) {
+            this.newTargetStart = params.newTargetStart;
+        }
+        if (params.newTargetEnd !== undefined) {
+            this.newTargetEnd = params.newTargetEnd;
+        }
+        if (params.dialogController !== undefined) {
+            this.dialogController = params.dialogController;
+        }
+        if (params.quickTags !== undefined) {
+            this.quickTags = params.quickTags;
+        }
+        if (params.context !== undefined) {
+            this.context = params.context;
+        }
+        if (params.isComponentDestroyed !== undefined) {
+            this.isComponentDestroyed = params.isComponentDestroyed;
+        }
+    }
+    updateStateVars(params: GoalsPage_Params) {
+    }
+    purgeVariableDependenciesOnElmtId(rmElmtId) {
+        this.__currentTab.purgeDependencyOnElmtId(rmElmtId);
+        this.__targetList.purgeDependencyOnElmtId(rmElmtId);
+        this.__newTargetTitle.purgeDependencyOnElmtId(rmElmtId);
+        this.__newTargetStart.purgeDependencyOnElmtId(rmElmtId);
+        this.__newTargetEnd.purgeDependencyOnElmtId(rmElmtId);
+    }
+    aboutToBeDeleted() {
+        this.__currentTab.aboutToBeDeleted();
+        this.__targetList.aboutToBeDeleted();
+        this.__newTargetTitle.aboutToBeDeleted();
+        this.__newTargetStart.aboutToBeDeleted();
+        this.__newTargetEnd.aboutToBeDeleted();
+        SubscriberManager.Get().delete(this.id__());
+        this.aboutToBeDeletedInternal();
+    }
+    private __currentTab: ObservedPropertySimplePU<TabType>;
+    get currentTab() {
+        return this.__currentTab.get();
+    }
+    set currentTab(newValue: TabType) {
+        this.__currentTab.set(newValue);
+    }
+    private __targetList: ObservedPropertyObjectPU<TargetItem[]>;
+    get targetList() {
+        return this.__targetList.get();
+    }
+    set targetList(newValue: TargetItem[]) {
+        this.__targetList.set(newValue);
+    }
+    private __newTargetTitle: ObservedPropertySimplePU<string>;
+    get newTargetTitle() {
+        return this.__newTargetTitle.get();
+    }
+    set newTargetTitle(newValue: string) {
+        this.__newTargetTitle.set(newValue);
+    }
+    private __newTargetStart: ObservedPropertySimplePU<string>;
+    get newTargetStart() {
+        return this.__newTargetStart.get();
+    }
+    set newTargetStart(newValue: string) {
+        this.__newTargetStart.set(newValue);
+    }
+    private __newTargetEnd: ObservedPropertySimplePU<string>;
+    get newTargetEnd() {
+        return this.__newTargetEnd.get();
+    }
+    set newTargetEnd(newValue: string) {
+        this.__newTargetEnd.set(newValue);
+    }
+    private dialogController: CustomDialogController | null;
+    private quickTags: string[];
+    private context: common.UIAbilityContext | null;
+    private isComponentDestroyed: boolean;
+    aboutToAppear() {
+        this.context = getContext(this) as common.UIAbilityContext;
+        this.isComponentDestroyed = false;
+        this.dialogController = new CustomDialogController({
+            builder: this.AddTargetDialog.bind(this),
+            autoCancel: true,
+            alignment: DialogAlignment.Center,
+            offset: { dx: 0, dy: 0 }
+        }, this);
+        // 🔥 每次从子页面回来，强制刷新最新数据！
+        this.loadTargetsFromBackend();
+    }
+    aboutToDisappear() {
+        this.isComponentDestroyed = true;
+        if (this.dialogController) {
+            this.dialogController.close();
+            this.dialogController = null;
+        }
+    }
+    initialRender() {
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create();
+            Column.debugLine("entry/src/main/ets/pages/GoalsPage.ets(136:5)", "entry");
+            Column.width('100%');
+            Column.height('100%');
+            Column.expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP]);
+            Column.backgroundImage({ "id": 16777226, "type": 20000, params: [], "bundleName": "com.example.educationapplication", "moduleName": "entry" });
+            Column.backgroundImageSize(ImageSize.Cover);
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            // 顶部标题栏
+            Row.create();
+            Row.debugLine("entry/src/main/ets/pages/GoalsPage.ets(138:7)", "entry");
+            // 顶部标题栏
+            Row.width('100%');
+            // 顶部标题栏
+            Row.height(60);
+            // 顶部标题栏
+            Row.padding({ left: 16, right: 16 });
+        }, Row);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create('目标');
+            Text.debugLine("entry/src/main/ets/pages/GoalsPage.ets(139:9)", "entry");
+            Text.fontSize(28);
+            Text.fontWeight(FontWeight.Bold);
+            Text.fontColor('#ff43526d');
+            Text.layoutWeight(1);
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Image.create({ "id": 16777245, "type": 20000, params: [], "bundleName": "com.example.educationapplication", "moduleName": "entry" });
+            Image.debugLine("entry/src/main/ets/pages/GoalsPage.ets(145:9)", "entry");
+            Image.width(28);
+            Image.height(28);
+            Image.margin({ right: 20 });
+            Image.onClick(() => {
+                router.pushUrl({ url: 'pages/TimePage' });
+            });
+        }, Image);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Image.create({ "id": 16777251, "type": 20000, params: [], "bundleName": "com.example.educationapplication", "moduleName": "entry" });
+            Image.debugLine("entry/src/main/ets/pages/GoalsPage.ets(153:9)", "entry");
+            Image.width(28);
+            Image.height(28);
+            Image.fillColor('#ff182832');
+            Image.onClick(() => {
+                this.newTargetTitle = '';
+                this.newTargetStart = '';
+                this.newTargetEnd = '';
+                this.dialogController?.open();
+            });
+        }, Image);
+        // 顶部标题栏
+        Row.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            // 目标列表
+            List.create();
+            List.debugLine("entry/src/main/ets/pages/GoalsPage.ets(169:7)", "entry");
+            // 目标列表
+            List.width('100%');
+            // 目标列表
+            List.layoutWeight(1);
+            // 目标列表
+            List.padding({ left: 16, right: 16, top: 12 });
+        }, List);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            ForEach.create();
+            const forEachItemGenFunction = _item => {
+                const item = _item;
+                {
+                    const itemCreation = (elmtId, isInitialRender) => {
+                        ViewStackProcessor.StartGetAccessRecordingFor(elmtId);
+                        ListItem.create(deepRenderFunction, true);
+                        if (!isInitialRender) {
+                            ListItem.pop();
+                        }
+                        ViewStackProcessor.StopGetAccessRecording();
+                    };
+                    const itemCreation2 = (elmtId, isInitialRender) => {
+                        ListItem.create(deepRenderFunction, true);
+                        ListItem.margin({ bottom: 12 });
+                        ListItem.debugLine("entry/src/main/ets/pages/GoalsPage.ets(171:11)", "entry");
+                    };
+                    const deepRenderFunction = (elmtId, isInitialRender) => {
+                        itemCreation(elmtId, isInitialRender);
+                        this.TargetCard.bind(this)(item);
+                        ListItem.pop();
+                    };
+                    this.observeComponentCreation2(itemCreation2, ListItem);
+                    ListItem.pop();
+                }
+            };
+            this.forEachUpdateFunction(elmtId, this.targetList, forEachItemGenFunction, (item: TargetItem) => item.plan_id, false, false);
+        }, ForEach);
+        ForEach.pop();
+        // 目标列表
+        List.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            // 底部导航
+            Row.create();
+            Row.debugLine("entry/src/main/ets/pages/GoalsPage.ets(182:7)", "entry");
+            // 底部导航
+            Row.width('100%');
+            // 底部导航
+            Row.height(70);
+            // 底部导航
+            Row.backgroundColor('#fff');
+        }, Row);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create({ space: 4 });
+            Column.debugLine("entry/src/main/ets/pages/GoalsPage.ets(183:9)", "entry");
+            Column.layoutWeight(1);
+            Column.onClick(() => {
+                this.currentTab = 'home';
+                router.pushUrl({ url: 'pages/Index' });
+            });
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create('🏠');
+            Text.debugLine("entry/src/main/ets/pages/GoalsPage.ets(184:11)", "entry");
+            Text.fontSize(24);
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create('首页');
+            Text.debugLine("entry/src/main/ets/pages/GoalsPage.ets(185:11)", "entry");
+            Text.fontSize(14);
+        }, Text);
+        Text.pop();
+        Column.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create({ space: 4 });
+            Column.debugLine("entry/src/main/ets/pages/GoalsPage.ets(193:9)", "entry");
+            Column.layoutWeight(1);
+            Column.onClick(() => { this.currentTab = 'plan'; });
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create('📝');
+            Text.debugLine("entry/src/main/ets/pages/GoalsPage.ets(194:11)", "entry");
+            Text.fontSize(24);
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create('待办');
+            Text.debugLine("entry/src/main/ets/pages/GoalsPage.ets(195:11)", "entry");
+            Text.fontSize(14);
+            Text.fontColor('#409EFF');
+        }, Text);
+        Text.pop();
+        Column.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create({ space: 4 });
+            Column.debugLine("entry/src/main/ets/pages/GoalsPage.ets(201:9)", "entry");
+            Column.layoutWeight(1);
+            Column.onClick(() => {
+                this.currentTab = 'recommend';
+                router.pushUrl({ url: 'pages/recommendPage' });
+            });
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create('📅');
+            Text.debugLine("entry/src/main/ets/pages/GoalsPage.ets(202:11)", "entry");
+            Text.fontSize(24);
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create('推荐');
+            Text.debugLine("entry/src/main/ets/pages/GoalsPage.ets(203:11)", "entry");
+            Text.fontSize(14);
+        }, Text);
+        Text.pop();
+        Column.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create({ space: 4 });
+            Column.debugLine("entry/src/main/ets/pages/GoalsPage.ets(211:9)", "entry");
+            Column.layoutWeight(1);
+            Column.onClick(() => {
+                this.currentTab = 'message';
+                router.pushUrl({ url: 'pages/MessagePage' });
+            });
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create("✉️");
+            Text.debugLine("entry/src/main/ets/pages/GoalsPage.ets(212:11)", "entry");
+            Text.fontSize(24);
+            Text.fontColor(this.currentTab === 'message' ? '#2563EB' : '#6B7280');
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create("消息");
+            Text.debugLine("entry/src/main/ets/pages/GoalsPage.ets(213:11)", "entry");
+            Text.fontColor(this.currentTab === 'message' ? '#2563EB' : '#6B7280');
+            Text.fontSize(14);
+        }, Text);
+        Text.pop();
+        Column.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create({ space: 4 });
+            Column.debugLine("entry/src/main/ets/pages/GoalsPage.ets(223:9)", "entry");
+            Column.layoutWeight(1);
+            Column.onClick(() => {
+                this.currentTab = 'mine';
+                router.pushUrl({ url: 'pages/myPage' });
+            });
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create('👤');
+            Text.debugLine("entry/src/main/ets/pages/GoalsPage.ets(224:11)", "entry");
+            Text.fontSize(24);
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create('我的');
+            Text.debugLine("entry/src/main/ets/pages/GoalsPage.ets(225:11)", "entry");
+            Text.fontSize(14);
+        }, Text);
+        Text.pop();
+        Column.pop();
+        // 底部导航
+        Row.pop();
+        Column.pop();
+    }
+    TargetCard(item: TargetItem, parent = null) {
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Stack.create();
+            Stack.debugLine("entry/src/main/ets/pages/GoalsPage.ets(245:5)", "entry");
+            Gesture.create(GesturePriority.Low);
+            LongPressGesture.create({ repeat: false });
+            LongPressGesture.onAction(() => {
+                AlertDialog.show({
+                    title: '确认删除',
+                    message: `确定要删除目标「${item.goal}」吗？`,
+                    confirm: {
+                        value: '删除',
+                        action: () => {
+                            console.log('🗑️ 删除目标 item =>', item);
+                            const index = this.targetList.findIndex(t => t.plan_id === item.plan_id);
+                            if (index !== -1) {
+                                this.targetList.splice(index, 1);
+                                promptAction.showToast({ message: '目标已删除' });
+                            }
+                        },
+                        fontColor: '#FF3B30'
+                    }
+                });
+            });
+            LongPressGesture.pop();
+            Gesture.pop();
+            Stack.onClick(async () => {
+                // 点击获取后端详情并打印日志
+                const detail = await this.fetchPlanDetail(item.plan_id);
+                console.log('======================================');
+                console.log('🖱️ 点击目标:', item.goal);
+                console.log('🆔 目标ID:', item.plan_id);
+                console.log('📄 后端返回详情:', JSON.stringify(detail, null, 2));
+                console.log('======================================');
+                // 原有跳转逻辑不变
+                router.pushUrl({
+                    url: 'pages/PlanPage',
+                    params: {
+                        targetId: item.plan_id,
+                        title: item.goal,
+                        planDetail: detail
+                    }
+                });
+            });
+        }, Stack);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Row.create();
+            Row.debugLine("entry/src/main/ets/pages/GoalsPage.ets(246:7)", "entry");
+            Row.width('100%');
+            Row.height(100);
+            Row.padding({ left: 20, right: 20 });
+            Row.backgroundImage(item.background);
+            Row.backgroundImageSize(ImageSize.Cover);
+            Row.borderRadius(12);
+        }, Row);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create();
+            Column.debugLine("entry/src/main/ets/pages/GoalsPage.ets(247:9)", "entry");
+            Column.layoutWeight(1);
+            Column.alignItems(HorizontalAlign.Start);
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create(item.goal);
+            Text.debugLine("entry/src/main/ets/pages/GoalsPage.ets(248:11)", "entry");
+            Text.fontSize(22);
+            Text.fontColor('#ff2f2e2e');
+            Text.fontWeight(FontWeight.Medium);
+            Text.alignSelf(ItemAlign.Start);
+            Text.margin({ bottom: 8 });
+        }, Text);
+        Text.pop();
+        Column.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create('开始');
+            Text.debugLine("entry/src/main/ets/pages/GoalsPage.ets(258:9)", "entry");
+            Text.fontSize(20);
+            Text.fontColor(Color.White);
+            Text.fontWeight(FontWeight.Medium);
+            Text.onClick(() => {
+                router.pushUrl({
+                    url: 'pages/TimePage',
+                    params: {
+                        targetTitle: item.goal,
+                        targetstart: item.start_date,
+                        targetend: item.end_date
+                    }
+                });
+            });
+        }, Text);
+        Text.pop();
+        Row.pop();
+        Stack.pop();
+    }
+    AddTargetDialog(parent = null) {
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create();
+            Column.debugLine("entry/src/main/ets/pages/GoalsPage.ets(323:5)", "entry");
+            Column.width('100%');
+            Column.padding(20);
+            Column.borderRadius(16);
+            Column.backgroundColor('#fff');
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Row.create();
+            Row.debugLine("entry/src/main/ets/pages/GoalsPage.ets(324:7)", "entry");
+            Row.width('100%');
+            Row.margin({ bottom: 20 });
+        }, Row);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create('添加目标');
+            Text.debugLine("entry/src/main/ets/pages/GoalsPage.ets(325:9)", "entry");
+            Text.fontSize(20);
+            Text.fontWeight(FontWeight.Medium);
+            Text.layoutWeight(1);
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Image.create({ "id": 16777231, "type": 20000, params: [], "bundleName": "com.example.educationapplication", "moduleName": "entry" });
+            Image.debugLine("entry/src/main/ets/pages/GoalsPage.ets(330:9)", "entry");
+            Image.width(24);
+            Image.height(24);
+            Image.fillColor('#007DFF');
+            Image.onClick(async () => {
+                this.dialogController?.close();
+                if (this.isComponentDestroyed)
+                    return;
+                if (this.newTargetTitle.trim() === '') {
+                    promptAction.showToast({ message: '目标名称不能为空' });
+                    return;
+                }
+                const result = await this.addTargetToBackend({
+                    goal: this.newTargetTitle,
+                    start_date: this.newTargetStart.trim() || '2026-03-17',
+                    end_date: this.newTargetEnd.trim() || '2026-03-18',
+                });
+                if (!result.success || !result.goalId) {
+                    promptAction.showToast({ message: '添加失败' });
+                    return;
+                }
+                // ✅ 正确添加到列表（不会被覆盖）
+                const newTarget: TargetItem = {
+                    plan_id: result.goalId,
+                    goal: this.newTargetTitle,
+                    start_date: this.newTargetStart || '2026-3-17',
+                    end_date: this.newTargetEnd || '2026-3-18',
+                    background: this.getRandomBg()
+                };
+                // 🔥 只追加，不替换整个列表！
+                this.targetList = [...this.targetList, newTarget];
+                promptAction.showToast({ message: '目标添加成功 ✅' });
+                // ✅ 关闭弹窗，不跳走！
+                // 把下面这行【删掉】或【注释】
+                // router.replaceUrl({ url: 'pages/PlanPage' });
+            });
+        }, Image);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Image.create({ "id": 16777242, "type": 20000, params: [], "bundleName": "com.example.educationapplication", "moduleName": "entry" });
+            Image.debugLine("entry/src/main/ets/pages/GoalsPage.ets(373:9)", "entry");
+            Image.width(24);
+            Image.height(24);
+            Image.fillColor('#666');
+            Image.margin({ left: 16 });
+            Image.onClick(() => {
+                this.newTargetTitle = '';
+                this.newTargetStart = '';
+                this.newTargetEnd = '';
+                this.dialogController?.close();
+            });
+        }, Image);
+        Row.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            TextInput.create({ text: this.newTargetTitle, placeholder: '目标' });
+            TextInput.debugLine("entry/src/main/ets/pages/GoalsPage.ets(388:7)", "entry");
+            TextInput.width('100%');
+            TextInput.height(48);
+            TextInput.fontSize(18);
+            TextInput.margin({ bottom: 20 });
+            TextInput.onChange(v => this.newTargetTitle = v);
+        }, TextInput);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            TextInput.create({ text: this.newTargetStart, placeholder: '开始时间' });
+            TextInput.debugLine("entry/src/main/ets/pages/GoalsPage.ets(395:7)", "entry");
+            TextInput.width('100%');
+            TextInput.height(48);
+            TextInput.fontSize(18);
+            TextInput.margin({ bottom: 20 });
+            TextInput.onChange(v => this.newTargetStart = v);
+        }, TextInput);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            TextInput.create({ text: this.newTargetEnd, placeholder: '结束时间' });
+            TextInput.debugLine("entry/src/main/ets/pages/GoalsPage.ets(402:7)", "entry");
+            TextInput.width('100%');
+            TextInput.height(48);
+            TextInput.fontSize(18);
+            TextInput.margin({ bottom: 20 });
+            TextInput.onChange(v => this.newTargetEnd = v);
+        }, TextInput);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Flex.create({ wrap: FlexWrap.Wrap });
+            Flex.debugLine("entry/src/main/ets/pages/GoalsPage.ets(409:7)", "entry");
+            Flex.width('100%');
+        }, Flex);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            ForEach.create();
+            const forEachItemGenFunction = _item => {
+                const tag = _item;
+                this.observeComponentCreation2((elmtId, isInitialRender) => {
+                    Text.create(tag);
+                    Text.debugLine("entry/src/main/ets/pages/GoalsPage.ets(411:11)", "entry");
+                    Text.fontSize(16);
+                    Text.fontColor('#007DFF');
+                    Text.padding({ left: 16, right: 16, top: 8, bottom: 8 });
+                    Text.backgroundColor('#E5F0FF');
+                    Text.borderRadius(20);
+                    Text.margin({ right: 12, bottom: 12 });
+                    Text.onClick(() => { this.newTargetTitle = tag; });
+                }, Text);
+                Text.pop();
+            };
+            this.forEachUpdateFunction(elmtId, this.quickTags, forEachItemGenFunction);
+        }, ForEach);
+        ForEach.pop();
+        Flex.pop();
+        Column.pop();
+    }
+    // ========== 工具 & 网络 ==========
+    private async getLoginInfo(): Promise<LoginInfo> {
+        try {
+            let ctx = globalContext?.context || this.context;
+            if (!ctx) {
+                promptAction.showToast({ message: '应用未初始化完成' });
+                return { userId: '', token: '' };
+            }
+            const pref = await dataPreferences.getPreferences(ctx, 'user_info');
+            const userId = await pref.get('user_id', '') as string;
+            const token = await pref.get('token', '') as string;
+            if (!userId || !token) {
+                promptAction.showToast({ message: '请先登录' });
+                setTimeout(() => {
+                    router.pushUrl({ url: 'pages/LoginPage' });
+                }, 100);
+                return { userId: '', token: '' };
+            }
+            return { userId, token };
+        }
+        catch (e) {
+            const err = e as BusinessError;
+            console.error('getLoginInfo', err);
+            promptAction.showToast({ message: '登录信息异常' });
+            return { userId: '', token: '' };
+        }
+    }
+    private async addTargetToBackend(target: TargetRequestData): Promise<AddTargetResult> {
+        try {
+            const loginInfo: LoginInfo = await this.getLoginInfo();
+            const userId: string = loginInfo.userId;
+            const token: string = loginInfo.token;
+            if (!userId || !token || this.isComponentDestroyed)
+                return { success: false };
+            const req: TargetRequestData = {
+                goal: target.goal,
+                start_date: target.start_date,
+                end_date: target.end_date
+            };
+            const httpRequest = http.createHttp();
+            const resp = await httpRequest.request(`${API_CONFIG.baseUrl}${API_CONFIG.addTarget}`, {
+                method: http.RequestMethod.POST,
+                header: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                extraData: JSON.stringify(req),
+                connectTimeout: 10000,
+                readTimeout: 10000
+            });
+            const code = resp.responseCode;
+            if (code !== 200) {
+                promptAction.showToast({ message: `请求失败 ${code}` });
+                httpRequest.destroy();
+                return { success: false };
+            }
+            const res = JSON.parse(resp.result.toString()) as PlancreateResponse;
+            httpRequest.destroy();
+            console.log("✅ 添加目标成功，后端返回 =>", JSON.stringify(res, null, 2));
+            if (res.code === 200 && res.data) {
+                return { success: true, goalId: res.data.goal_id };
+            }
+            else {
+                return { success: false };
+            }
+        }
+        catch (e) {
+            promptAction.showToast({ message: '网络异常' });
+            console.error('addTarget', e);
+            return { success: false };
+        }
+    }
+    // 新增：获取目标详情 适配你的接口 /goals/{goal_id}/tasks
+    private async fetchPlanDetail(goalId: string): Promise<PlanDetailResponse | null> {
+        try {
+            const loginInfo = await this.getLoginInfo();
+            const token = loginInfo.token;
+            if (!token)
+                return null;
+            const httpRequest = http.createHttp();
+            // 🔥 完全匹配你的后端接口地址
+            const url = `${API_CONFIG.baseUrl}${API_CONFIG.getPlanDetail}/${goalId}/tasks`;
+            console.log("📡 请求详情接口：", url);
+            const resp = await httpRequest.request(url, {
+                method: http.RequestMethod.GET,
+                header: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+            if (resp.responseCode !== 200) {
+                httpRequest.destroy();
+                return null;
+            }
+            const res = JSON.parse(resp.result.toString()) as PlanDetailResponse;
+            httpRequest.destroy();
+            return res;
+        }
+        catch (e) {
+            console.error('获取详情失败', e);
+            return null;
+        }
+    }
+    private async loadTargetsFromBackend() {
+        if (this.isComponentDestroyed)
+            return;
+        try {
+            const loginInfo = await this.getLoginInfo();
+            const userId = loginInfo.userId;
+            const token = loginInfo.token;
+            if (!userId || !token)
+                return;
+            const httpRequest = http.createHttp();
+            const resp = await httpRequest.request(`${API_CONFIG.baseUrl}${API_CONFIG.getTargets}?user_id=${userId}`, {
+                method: http.RequestMethod.GET,
+                header: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+            if (resp.responseCode !== 200) {
+                promptAction.showToast({ message: `加载失败：${resp.responseCode}` });
+                httpRequest.destroy();
+                return;
+            }
+            const res = JSON.parse(resp.result.toString()) as ApiResponse<TargetItem[]>;
+            httpRequest.destroy();
+            if (res.code === 200 && res.data) {
+                console.log('✅ 加载后端目标列表 =>', res.data);
+                // 🔥 后端返回的真实目标
+                const backendTargets = res.data.map((i): TargetItem => ({
+                    plan_id: i.plan_id + '',
+                    goal: i.goal,
+                    start_date: i.start_date,
+                    end_date: i.end_date,
+                    background: this.getRandomBg()
+                }));
+                // ==============================================
+                // ✅ 方案3 核心：
+                // 有后端数据 → 只显示真实目标
+                // 没有后端数据 → 显示提示目标
+                // ==============================================
+                if (backendTargets.length > 0) {
+                    this.targetList = backendTargets;
+                }
+                else {
+                    this.targetList = [
+                        {
+                            plan_id: '1',
+                            goal: '按➕添加目标',
+                            start_date: '2026-3-17',
+                            end_date: '2026-3-18',
+                            background: { "id": 16777256, "type": 20000, params: [], "bundleName": "com.example.educationapplication", "moduleName": "entry" }
+                        },
+                        {
+                            plan_id: '2',
+                            goal: '长按删除目标',
+                            start_date: '2026-3-17',
+                            end_date: '2026-3-18',
+                            background: { "id": 16777244, "type": 20000, params: [], "bundleName": "com.example.educationapplication", "moduleName": "entry" }
+                        }
+                    ];
+                }
+            }
+        }
+        catch (err) {
+            console.error('加载目标失败', err);
+            promptAction.showToast({ message: '加载历史目标失败，使用本地数据' });
+        }
+    }
+    private getRandomBg(): Resource {
+        const list = [
+            { "id": 16777241, "type": 20000, params: [], "bundleName": "com.example.educationapplication", "moduleName": "entry" },
+            { "id": 16777244, "type": 20000, params: [], "bundleName": "com.example.educationapplication", "moduleName": "entry" },
+            { "id": 16777223, "type": 20000, params: [], "bundleName": "com.example.educationapplication", "moduleName": "entry" },
+            { "id": 16777256, "type": 20000, params: [], "bundleName": "com.example.educationapplication", "moduleName": "entry" }
+        ];
+        return list[Math.floor(Math.random() * list.length)];
+    }
+    rerender() {
+        this.updateDirtyElements();
+    }
+    static getEntryName(): string {
+        return "GoalsPage";
+    }
+}
+registerNamedRoute(() => new GoalsPage(undefined, {}), "", { bundleName: "com.example.educationapplication", moduleName: "entry", pagePath: "pages/GoalsPage", pageFullPath: "entry/src/main/ets/pages/GoalsPage", integratedHsp: "false", moduleType: "followWithHap" });

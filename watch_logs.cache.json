@@ -1,0 +1,133 @@
+if (!("finalizeConstruction" in ViewPU.prototype)) {
+    Reflect.set(ViewPU.prototype, "finalizeConstruction", () => { });
+}
+interface FeedbackPage_Params {
+    feedbackContent?: string;
+}
+import router from "@ohos:router";
+import promptAction from "@ohos:promptAction";
+class FeedbackPage extends ViewPU {
+    constructor(parent, params, __localStorage, elmtId = -1, paramsLambda = undefined, extraInfo) {
+        super(parent, __localStorage, elmtId, extraInfo);
+        if (typeof paramsLambda === "function") {
+            this.paramsGenerator_ = paramsLambda;
+        }
+        this.__feedbackContent = new ObservedPropertySimplePU('', this, "feedbackContent");
+        this.setInitiallyProvidedValue(params);
+        this.finalizeConstruction();
+    }
+    setInitiallyProvidedValue(params: FeedbackPage_Params) {
+        if (params.feedbackContent !== undefined) {
+            this.feedbackContent = params.feedbackContent;
+        }
+    }
+    updateStateVars(params: FeedbackPage_Params) {
+    }
+    purgeVariableDependenciesOnElmtId(rmElmtId) {
+        this.__feedbackContent.purgeDependencyOnElmtId(rmElmtId);
+    }
+    aboutToBeDeleted() {
+        this.__feedbackContent.aboutToBeDeleted();
+        SubscriberManager.Get().delete(this.id__());
+        this.aboutToBeDeletedInternal();
+    }
+    private __feedbackContent: ObservedPropertySimplePU<string>;
+    get feedbackContent() {
+        return this.__feedbackContent.get();
+    }
+    set feedbackContent(newValue: string) {
+        this.__feedbackContent.set(newValue);
+    }
+    initialRender() {
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create({ space: 20 });
+            Column.debugLine("entry/src/main/ets/pages/myfk.ets(9:5)", "entry");
+            Column.width('100%');
+            Column.height('100%');
+            Column.backgroundImage({ "id": 16777260, "type": 20000, params: [], "bundleName": "com.example.educationapplication", "moduleName": "entry" });
+            Column.backgroundImageSize(ImageSize.Cover);
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Row.create();
+            Row.debugLine("entry/src/main/ets/pages/myfk.ets(10:7)", "entry");
+            Row.margin({ top: 10 });
+        }, Row);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Image.create({ "id": 16777253, "type": 20000, params: [], "bundleName": "com.example.educationapplication", "moduleName": "entry" });
+            Image.debugLine("entry/src/main/ets/pages/myfk.ets(11:9)", "entry");
+            Image.width(35);
+            Image.height(35);
+            Image.onClick(() => {
+                router.pushUrl({
+                    url: 'pages/myPage'
+                }, router.RouterMode.Single);
+            });
+        }, Image);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create('意见反馈');
+            Text.debugLine("entry/src/main/ets/pages/myfk.ets(19:9)", "entry");
+            Text.fontSize(30);
+            Text.fontWeight(FontWeight.Medium);
+            Text.width('90%');
+            Text.textAlign(TextAlign.Center);
+        }, Text);
+        Text.pop();
+        Row.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            TextArea.create({
+                placeholder: '请输入您的意见或建议',
+                text: this.feedbackContent
+            });
+            TextArea.debugLine("entry/src/main/ets/pages/myfk.ets(27:7)", "entry");
+            TextArea.width('90%');
+            TextArea.height(250);
+            TextArea.padding(12);
+            TextArea.backgroundColor('#F5F5F5');
+            TextArea.borderRadius(12);
+            TextArea.onChange((value: string) => {
+                this.feedbackContent = value;
+            });
+        }, TextArea);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Button.createWithLabel('提交反馈');
+            Button.debugLine("entry/src/main/ets/pages/myfk.ets(40:7)", "entry");
+            Button.width('90%');
+            Button.height(50);
+            Button.fontSize(18);
+            Button.backgroundColor('#ff77b3f3');
+            Button.expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM]);
+            Button.borderRadius(25);
+            Button.onClick(() => {
+                this.submitFeedback();
+                router.pushUrl({
+                    url: 'pages/myPage'
+                }, router.RouterMode.Single);
+            });
+        }, Button);
+        Button.pop();
+        Column.pop();
+    }
+    private submitFeedback(): void {
+        if (this.feedbackContent.trim() === '') {
+            promptAction.showToast({
+                message: '请输入反馈内容',
+                duration: 2000
+            });
+            return;
+        }
+        promptAction.showToast({
+            message: '反馈提交成功！感谢您的建议',
+            duration: 1000
+        });
+        setTimeout(() => {
+            this.feedbackContent = '';
+        }, 2000);
+    }
+    rerender() {
+        this.updateDirtyElements();
+    }
+    static getEntryName(): string {
+        return "FeedbackPage";
+    }
+}
+registerNamedRoute(() => new FeedbackPage(undefined, {}), "", { bundleName: "com.example.educationapplication", moduleName: "entry", pagePath: "pages/myfk", pageFullPath: "entry/src/main/ets/pages/myfk", integratedHsp: "false", moduleType: "followWithHap" });

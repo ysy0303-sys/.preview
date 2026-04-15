@@ -1,0 +1,71 @@
+{
+	"app": {
+		"bundleName": "com.example.educationapplication",
+		"vendor": "拾光计划团队",
+		"versionCode": 1000000,
+		"versionName": "1.0.0",
+		"icon": "$media:tubiao",
+		"label": "$string:app_name",
+		"description": "$string:app_desc",
+		"apiReleaseType": "Beta1",
+		"compileSdkVersion": "6.0.2.129",
+		"targetAPIVersion": 60002022,
+		"minAPIVersion": 60002022,
+		"compileSdkType": "HarmonyOS",
+		"targetMinorAPIVersion": 0,
+		"targetPatchAPIVersion": 0,
+		"appEnvironments": [],
+		"bundleType": "app",
+		"buildMode": "debug",
+		"debug": true
+	},
+	"module": {
+		"name": "entry",
+		"type": "entry",
+		"description": "$string:module_desc",
+		"mainElement": "EntryAbility",
+		"deviceTypes": [
+			"phone"
+		],
+		"deliveryWithInstall": true,
+		"installationFree": false,
+		"pages": "$profile:main_pages",
+		"abilities": [
+			{
+				"name": "EntryAbility",
+				"srcEntry": "./ets/entryability/EntryAbility.ets",
+				"description": "$string:app_desc",
+				"icon": "$media:tubiao",
+				"label": "$string:app_name",
+				"startWindowIcon": "$media:tubiao",
+				"startWindowBackground": "$color:start_window_background",
+				"exported": true,
+				"skills": [
+					{
+						"entities": [
+							"entity.system.home"
+						],
+						"actions": [
+							"ohos.want.action.home"
+						]
+					}
+				]
+			}
+		],
+		"extensionAbilities": [
+			{
+				"name": "EntryBackupAbility",
+				"srcEntry": "./ets/entrybackupability/EntryBackupAbility.ets",
+				"type": "backup",
+				"exported": false,
+				"metadata": [
+					{
+						"name": "ohos.extension.backup",
+						"resource": "$profile:backup_config"
+					}
+				]
+			}
+		],
+		"packageName": "entry"
+	}
+}

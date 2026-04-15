@@ -1,0 +1,731 @@
+if (!("finalizeConstruction" in ViewPU.prototype)) {
+    Reflect.set(ViewPU.prototype, "finalizeConstruction", () => { });
+}
+interface EmoPage_Params {
+    schedules?: ScheduleItem[];
+    showPublishDialog?: boolean;
+    newMood?: string;
+    newContent?: string;
+    newGoodThing1?: string;
+    newGoodThing2?: string;
+    newGoodThing3?: string;
+}
+import router from "@ohos:router";
+// 定义单条日程数据结构
+interface ScheduleItem {
+    id: number;
+    date: string;
+    week: string;
+    mood: string;
+    timeRange: string;
+    duration: string;
+    content: string;
+    goodThings: string[];
+    signature: string;
+}
+class EmoPage extends ViewPU {
+    constructor(parent, params, __localStorage, elmtId = -1, paramsLambda = undefined, extraInfo) {
+        super(parent, __localStorage, elmtId, extraInfo);
+        if (typeof paramsLambda === "function") {
+            this.paramsGenerator_ = paramsLambda;
+        }
+        this.__schedules = new ObservedPropertyObjectPU([
+            {
+                id: 1,
+                date: "2026年1月25日",
+                week: "星期日",
+                mood: "惊喜 🤩",
+                timeRange: "23:21 - 23:24",
+                duration: "3分钟",
+                content: "眼镜竟然在锁屏状态下运行了 🤔",
+                goodThings: [
+                    "感恩晚饭吃得超级无敌饱～都是我爱吃的，猛然魂魂跳又烧 🤤",
+                    "感恩天气很好，很温暖，我终于可以动身大扫除啦，舒服多了，家里干干净净的；",
+                    "感恩阳光甚好，有坚持动动哦～"
+                ],
+                signature: "🐘💫不被定义💫🐘"
+            },
+            {
+                id: 2,
+                date: "2026年1月26日",
+                week: "星期一",
+                mood: "平静 😌",
+                timeRange: "22:10 - 22:15",
+                duration: "5分钟",
+                content: "今天泡了一杯热可可，窝在沙发上看了半本书，很安心。",
+                goodThings: [
+                    "感恩图书馆靠窗的位置，阳光刚好落在书页上。",
+                    "感恩楼下便利店的热饮，暖到了胃里。"
+                ],
+                signature: "向内生长，安静而有力量"
+            }
+        ], this, "schedules");
+        this.__showPublishDialog = new ObservedPropertySimplePU(false, this, "showPublishDialog");
+        this.__newMood = new ObservedPropertySimplePU("平静 😊", this, "newMood");
+        this.__newContent = new ObservedPropertySimplePU("", this, "newContent");
+        this.__newGoodThing1 = new ObservedPropertySimplePU("", this, "newGoodThing1");
+        this.__newGoodThing2 = new ObservedPropertySimplePU("", this, "newGoodThing2");
+        this.__newGoodThing3 = new ObservedPropertySimplePU("", this, "newGoodThing3");
+        this.setInitiallyProvidedValue(params);
+        this.finalizeConstruction();
+    }
+    setInitiallyProvidedValue(params: EmoPage_Params) {
+        if (params.schedules !== undefined) {
+            this.schedules = params.schedules;
+        }
+        if (params.showPublishDialog !== undefined) {
+            this.showPublishDialog = params.showPublishDialog;
+        }
+        if (params.newMood !== undefined) {
+            this.newMood = params.newMood;
+        }
+        if (params.newContent !== undefined) {
+            this.newContent = params.newContent;
+        }
+        if (params.newGoodThing1 !== undefined) {
+            this.newGoodThing1 = params.newGoodThing1;
+        }
+        if (params.newGoodThing2 !== undefined) {
+            this.newGoodThing2 = params.newGoodThing2;
+        }
+        if (params.newGoodThing3 !== undefined) {
+            this.newGoodThing3 = params.newGoodThing3;
+        }
+    }
+    updateStateVars(params: EmoPage_Params) {
+    }
+    purgeVariableDependenciesOnElmtId(rmElmtId) {
+        this.__schedules.purgeDependencyOnElmtId(rmElmtId);
+        this.__showPublishDialog.purgeDependencyOnElmtId(rmElmtId);
+        this.__newMood.purgeDependencyOnElmtId(rmElmtId);
+        this.__newContent.purgeDependencyOnElmtId(rmElmtId);
+        this.__newGoodThing1.purgeDependencyOnElmtId(rmElmtId);
+        this.__newGoodThing2.purgeDependencyOnElmtId(rmElmtId);
+        this.__newGoodThing3.purgeDependencyOnElmtId(rmElmtId);
+    }
+    aboutToBeDeleted() {
+        this.__schedules.aboutToBeDeleted();
+        this.__showPublishDialog.aboutToBeDeleted();
+        this.__newMood.aboutToBeDeleted();
+        this.__newContent.aboutToBeDeleted();
+        this.__newGoodThing1.aboutToBeDeleted();
+        this.__newGoodThing2.aboutToBeDeleted();
+        this.__newGoodThing3.aboutToBeDeleted();
+        SubscriberManager.Get().delete(this.id__());
+        this.aboutToBeDeletedInternal();
+    }
+    // 状态：控制列表刷新 + 存储数据
+    private __schedules: ObservedPropertyObjectPU<ScheduleItem[]>;
+    get schedules() {
+        return this.__schedules.get();
+    }
+    set schedules(newValue: ScheduleItem[]) {
+        this.__schedules.set(newValue);
+    }
+    private __showPublishDialog: ObservedPropertySimplePU<boolean>;
+    get showPublishDialog() {
+        return this.__showPublishDialog.get();
+    }
+    set showPublishDialog(newValue: boolean) {
+        this.__showPublishDialog.set(newValue);
+    }
+    private __newMood: ObservedPropertySimplePU<string>;
+    get newMood() {
+        return this.__newMood.get();
+    }
+    set newMood(newValue: string) {
+        this.__newMood.set(newValue);
+    }
+    private __newContent: ObservedPropertySimplePU<string>;
+    get newContent() {
+        return this.__newContent.get();
+    }
+    set newContent(newValue: string) {
+        this.__newContent.set(newValue);
+    }
+    private __newGoodThing1: ObservedPropertySimplePU<string>;
+    get newGoodThing1() {
+        return this.__newGoodThing1.get();
+    }
+    set newGoodThing1(newValue: string) {
+        this.__newGoodThing1.set(newValue);
+    }
+    private __newGoodThing2: ObservedPropertySimplePU<string>;
+    get newGoodThing2() {
+        return this.__newGoodThing2.get();
+    }
+    set newGoodThing2(newValue: string) {
+        this.__newGoodThing2.set(newValue);
+    }
+    private __newGoodThing3: ObservedPropertySimplePU<string>;
+    get newGoodThing3() {
+        return this.__newGoodThing3.get();
+    }
+    set newGoodThing3(newValue: string) {
+        this.__newGoodThing3.set(newValue);
+    }
+    // 获取当前日期字符串
+    getCurrentDate(): string {
+        const now = new Date();
+        return `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日`;
+    }
+    // 获取当前星期
+    getWeekStr(): string {
+        const weeks = ["星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"];
+        return weeks[new Date().getDay()];
+    }
+    // 发布新日程
+    publishNewSchedule() {
+        if (!this.newContent.trim())
+            return;
+        const newItem: ScheduleItem = {
+            id: Date.now(),
+            date: this.getCurrentDate(),
+            week: this.getWeekStr(),
+            mood: this.newMood,
+            timeRange: "23:00 - 23:03",
+            duration: "3分钟",
+            content: this.newContent,
+            goodThings: [this.newGoodThing1, this.newGoodThing2, this.newGoodThing3].filter(s => s.trim()),
+            signature: "🐘💫不被定义💫🐘"
+        };
+        this.schedules = [newItem, ...this.schedules];
+        this.newMood = "平静 😊";
+        this.newContent = "";
+        this.newGoodThing1 = "";
+        this.newGoodThing2 = "";
+        this.newGoodThing3 = "";
+        this.showPublishDialog = false;
+    }
+    initialRender() {
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create();
+            Column.debugLine("entry/src/main/ets/pages/EmoPage.ets(96:5)", "entry");
+            Column.width('100%');
+            Column.height('100%');
+            Column.expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM, SafeAreaEdge.TOP]);
+            Column.backgroundImage({ "id": 16777238, "type": 20000, params: [], "bundleName": "com.example.educationapplication", "moduleName": "entry" });
+            Column.backgroundImageSize(ImageSize.Cover);
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            // 1. 顶部导航栏
+            Row.create();
+            Row.debugLine("entry/src/main/ets/pages/EmoPage.ets(98:7)", "entry");
+            // 1. 顶部导航栏
+            Row.width('100%');
+            // 1. 顶部导航栏
+            Row.height(56);
+            // 1. 顶部导航栏
+            Row.padding({ left: 16, right: 16 });
+        }, Row);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            // 返回按钮（修复后：使用 Icon 组件）
+            Image.create({ "id": 16777232, "type": 20000, params: [], "bundleName": "com.example.educationapplication", "moduleName": "entry" });
+            Image.debugLine("entry/src/main/ets/pages/EmoPage.ets(100:9)", "entry");
+            // 返回按钮（修复后：使用 Icon 组件）
+            Image.width(34);
+            // 返回按钮（修复后：使用 Icon 组件）
+            Image.onClick(() => {
+                router.back();
+            });
+        }, Image);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            // 标题
+            Text.create("心情集🍂🍃");
+            Text.debugLine("entry/src/main/ets/pages/EmoPage.ets(107:9)", "entry");
+            // 标题
+            Text.fontSize(20);
+            // 标题
+            Text.fontWeight(FontWeight.Medium);
+            // 标题
+            Text.fontColor('#222');
+            // 标题
+            Text.layoutWeight(1);
+            // 标题
+            Text.textAlign(TextAlign.Center);
+        }, Text);
+        // 标题
+        Text.pop();
+        // 1. 顶部导航栏
+        Row.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            // 2. 标签栏
+            Row.create();
+            Row.debugLine("entry/src/main/ets/pages/EmoPage.ets(122:7)", "entry");
+            // 2. 标签栏
+            Row.width('100%');
+            // 2. 标签栏
+            Row.height(48);
+        }, Row);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create("日程记录");
+            Text.debugLine("entry/src/main/ets/pages/EmoPage.ets(123:9)", "entry");
+            Text.fontSize(15);
+            Text.fontWeight(FontWeight.Medium);
+            Text.fontColor('#ff3b3b3b');
+            Text.layoutWeight(1);
+            Text.textAlign(TextAlign.Center);
+            Text.padding({ bottom: 12 });
+            Text.border({
+                width: { bottom: 2 },
+                color: { bottom: '#ff7c96b2' },
+                style: { bottom: BorderStyle.Solid }
+            });
+        }, Text);
+        Text.pop();
+        // 2. 标签栏
+        Row.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            // 3. 可滚动日程列表
+            Scroll.create();
+            Scroll.debugLine("entry/src/main/ets/pages/EmoPage.ets(141:7)", "entry");
+            // 3. 可滚动日程列表
+            Scroll.layoutWeight(1);
+            // 3. 可滚动日程列表
+            Scroll.edgeEffect(EdgeEffect.Spring);
+        }, Scroll);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create({ space: 20 });
+            Column.debugLine("entry/src/main/ets/pages/EmoPage.ets(142:9)", "entry");
+            Column.width('100%');
+            Column.padding(16);
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            ForEach.create();
+            const forEachItemGenFunction = _item => {
+                const item = _item;
+                this.observeComponentCreation2((elmtId, isInitialRender) => {
+                    // 单条日程卡片
+                    Column.create({ space: 12 });
+                    Column.debugLine("entry/src/main/ets/pages/EmoPage.ets(145:13)", "entry");
+                    // 单条日程卡片
+                    Column.width('100%');
+                    // 单条日程卡片
+                    Column.padding(16);
+                    // 单条日程卡片
+                    Column.backgroundColor('#fff');
+                    // 单条日程卡片
+                    Column.borderRadius(16);
+                    // 单条日程卡片
+                    Column.shadow({
+                        radius: 8,
+                        color: '#1A000000',
+                        offsetX: 0,
+                        offsetY: 2
+                    });
+                }, Column);
+                this.observeComponentCreation2((elmtId, isInitialRender) => {
+                    // 日期栏
+                    Row.create();
+                    Row.debugLine("entry/src/main/ets/pages/EmoPage.ets(147:15)", "entry");
+                    // 日期栏
+                    Row.width('100%');
+                    // 日期栏
+                    Row.alignItems(VerticalAlign.Center);
+                }, Row);
+                this.observeComponentCreation2((elmtId, isInitialRender) => {
+                    Text.create("⋀");
+                    Text.debugLine("entry/src/main/ets/pages/EmoPage.ets(148:17)", "entry");
+                    Text.fontSize(16);
+                    Text.fontColor('#666');
+                    Text.margin({ right: 8 });
+                }, Text);
+                Text.pop();
+                this.observeComponentCreation2((elmtId, isInitialRender) => {
+                    Text.create(`${item.date} | ${item.week}`);
+                    Text.debugLine("entry/src/main/ets/pages/EmoPage.ets(152:17)", "entry");
+                    Text.fontSize(17);
+                    Text.fontWeight(FontWeight.Medium);
+                    Text.fontColor('#333');
+                }, Text);
+                Text.pop();
+                // 日期栏
+                Row.pop();
+                this.observeComponentCreation2((elmtId, isInitialRender) => {
+                    // 日记标题
+                    Row.create();
+                    Row.debugLine("entry/src/main/ets/pages/EmoPage.ets(161:15)", "entry");
+                    // 日记标题
+                    Row.width('100%');
+                    // 日记标题
+                    Row.alignItems(VerticalAlign.Center);
+                    // 日记标题
+                    Row.margin({ bottom: 4 });
+                }, Row);
+                this.observeComponentCreation2((elmtId, isInitialRender) => {
+                    Text.create(`日记-${item.mood}`);
+                    Text.debugLine("entry/src/main/ets/pages/EmoPage.ets(162:17)", "entry");
+                    Text.fontSize(16);
+                    Text.fontWeight(FontWeight.Medium);
+                    Text.fontColor('#333');
+                    Text.layoutWeight(1);
+                }, Text);
+                Text.pop();
+                this.observeComponentCreation2((elmtId, isInitialRender) => {
+                    Text.create(item.duration);
+                    Text.debugLine("entry/src/main/ets/pages/EmoPage.ets(167:17)", "entry");
+                    Text.fontSize(13);
+                    Text.fontColor('#999');
+                }, Text);
+                Text.pop();
+                // 日记标题
+                Row.pop();
+                this.observeComponentCreation2((elmtId, isInitialRender) => {
+                    // 时间
+                    Text.create(`${item.date} ${item.timeRange.split(' - ')[0]}`);
+                    Text.debugLine("entry/src/main/ets/pages/EmoPage.ets(176:15)", "entry");
+                    // 时间
+                    Text.fontSize(14);
+                    // 时间
+                    Text.fontColor('#666');
+                    // 时间
+                    Text.width('100%');
+                }, Text);
+                // 时间
+                Text.pop();
+                this.observeComponentCreation2((elmtId, isInitialRender) => {
+                    // 日记内容
+                    Text.create(`☻心情: ${item.mood}\n@日记: ${item.content}`);
+                    Text.debugLine("entry/src/main/ets/pages/EmoPage.ets(182:15)", "entry");
+                    // 日记内容
+                    Text.fontSize(15);
+                    // 日记内容
+                    Text.fontColor('#444');
+                    // 日记内容
+                    Text.lineHeight(22);
+                    // 日记内容
+                    Text.width('100%');
+                }, Text);
+                // 日记内容
+                Text.pop();
+                this.observeComponentCreation2((elmtId, isInitialRender) => {
+                    If.create();
+                    // 三件美好
+                    if (item.goodThings.length > 0) {
+                        this.ifElseBranchUpdateFunction(0, () => {
+                            this.observeComponentCreation2((elmtId, isInitialRender) => {
+                                Column.create({ space: 8 });
+                                Column.debugLine("entry/src/main/ets/pages/EmoPage.ets(190:17)", "entry");
+                                Column.width('100%');
+                                Column.padding({ top: 8 });
+                            }, Column);
+                            this.observeComponentCreation2((elmtId, isInitialRender) => {
+                                Text.create("☑播好三样美好:");
+                                Text.debugLine("entry/src/main/ets/pages/EmoPage.ets(191:19)", "entry");
+                                Text.fontSize(14);
+                                Text.fontColor('#555');
+                                Text.fontWeight(FontWeight.Medium);
+                                Text.width('100%');
+                            }, Text);
+                            Text.pop();
+                            this.observeComponentCreation2((elmtId, isInitialRender) => {
+                                ForEach.create();
+                                const forEachItemGenFunction = (_item, index: number) => {
+                                    const good = _item;
+                                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                                        Row.create({ space: 8 });
+                                        Row.debugLine("entry/src/main/ets/pages/EmoPage.ets(198:21)", "entry");
+                                        Row.width('100%');
+                                        Row.alignItems(VerticalAlign.Top);
+                                    }, Row);
+                                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                                        Text.create(`${index + 1}`);
+                                        Text.debugLine("entry/src/main/ets/pages/EmoPage.ets(199:23)", "entry");
+                                        Text.fontSize(12);
+                                        Text.fontColor('#fff');
+                                        Text.width(18);
+                                        Text.height(18);
+                                        Text.backgroundColor('#4682B4');
+                                        Text.borderRadius(9);
+                                        Text.textAlign(TextAlign.Center);
+                                    }, Text);
+                                    Text.pop();
+                                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                                        Text.create(good);
+                                        Text.debugLine("entry/src/main/ets/pages/EmoPage.ets(207:23)", "entry");
+                                        Text.fontSize(14);
+                                        Text.fontColor('#555');
+                                        Text.layoutWeight(1);
+                                        Text.lineHeight(20);
+                                    }, Text);
+                                    Text.pop();
+                                    Row.pop();
+                                };
+                                this.forEachUpdateFunction(elmtId, item.goodThings, forEachItemGenFunction, (good: string) => good, true, false);
+                            }, ForEach);
+                            ForEach.pop();
+                            Column.pop();
+                        });
+                    }
+                    // 签名
+                    else {
+                        this.ifElseBranchUpdateFunction(1, () => {
+                        });
+                    }
+                }, If);
+                If.pop();
+                this.observeComponentCreation2((elmtId, isInitialRender) => {
+                    // 签名
+                    Text.create(item.signature);
+                    Text.debugLine("entry/src/main/ets/pages/EmoPage.ets(222:15)", "entry");
+                    // 签名
+                    Text.fontSize(14);
+                    // 签名
+                    Text.fontColor('#888');
+                    // 签名
+                    Text.fontStyle(FontStyle.Italic);
+                    // 签名
+                    Text.width('100%');
+                    // 签名
+                    Text.margin({ top: 8 });
+                }, Text);
+                // 签名
+                Text.pop();
+                // 单条日程卡片
+                Column.pop();
+            };
+            this.forEachUpdateFunction(elmtId, this.schedules, forEachItemGenFunction, (item: ScheduleItem) => item.id.toString(), false, false);
+        }, ForEach);
+        ForEach.pop();
+        Column.pop();
+        // 3. 可滚动日程列表
+        Scroll.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            If.create();
+            // 4. 悬浮发布按钮（修复后：使用 Stack 包裹 Circle 和 Text）
+            if (!this.showPublishDialog) {
+                this.ifElseBranchUpdateFunction(0, () => {
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Stack.create();
+                        Stack.debugLine("entry/src/main/ets/pages/EmoPage.ets(250:9)", "entry");
+                        Stack.width(56);
+                        Stack.height(56);
+                        Stack.position({ x: '80%', y: '85%' });
+                        Stack.zIndex(10);
+                        Stack.onClick(() => {
+                            this.showPublishDialog = true;
+                        });
+                    }, Stack);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Circle.create();
+                        Circle.debugLine("entry/src/main/ets/pages/EmoPage.ets(251:11)", "entry");
+                        Circle.width(56);
+                        Circle.height(56);
+                        Circle.backgroundColor(Color.Transparent);
+                        Circle.fill('#ff839999');
+                        Circle.shadow({ radius: 0, color: '#00000000', offsetX: 0, offsetY: 0 });
+                    }, Circle);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Text.create("+");
+                        Text.debugLine("entry/src/main/ets/pages/EmoPage.ets(257:11)", "entry");
+                        Text.fontSize(32);
+                        Text.fontColor('#ff045353');
+                        Text.fontWeight(FontWeight.Bold);
+                    }, Text);
+                    Text.pop();
+                    Stack.pop();
+                });
+            }
+            // 5. 发布弹窗
+            else {
+                this.ifElseBranchUpdateFunction(1, () => {
+                });
+            }
+        }, If);
+        If.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            If.create();
+            // 5. 发布弹窗
+            if (this.showPublishDialog) {
+                this.ifElseBranchUpdateFunction(0, () => {
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Column.create();
+                        Column.debugLine("entry/src/main/ets/pages/EmoPage.ets(273:9)", "entry");
+                        Column.width('100%');
+                        Column.backgroundColor('#00000033');
+                        Column.position({ x: 0, y: 0 });
+                        Column.zIndex(9);
+                        Column.onClick(() => {
+                            this.showPublishDialog = false;
+                        });
+                    }, Column);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        // 弹窗头部
+                        Row.create();
+                        Row.debugLine("entry/src/main/ets/pages/EmoPage.ets(275:11)", "entry");
+                        // 弹窗头部
+                        Row.width('100%');
+                        // 弹窗头部
+                        Row.height(56);
+                        // 弹窗头部
+                        Row.padding({ left: 16, right: 16 });
+                        // 弹窗头部
+                        Row.backgroundColor('#fff');
+                        // 弹窗头部
+                        Row.borderRadius({ topLeft: 16, topRight: 16 });
+                    }, Row);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Text.create("取消");
+                        Text.debugLine("entry/src/main/ets/pages/EmoPage.ets(276:13)", "entry");
+                        Text.fontSize(15);
+                        Text.fontColor('#999');
+                        Text.onClick(() => {
+                            this.showPublishDialog = false;
+                        });
+                    }, Text);
+                    Text.pop();
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Text.create("写日记");
+                        Text.debugLine("entry/src/main/ets/pages/EmoPage.ets(282:13)", "entry");
+                        Text.fontSize(17);
+                        Text.fontWeight(FontWeight.Medium);
+                        Text.fontColor('#222');
+                        Text.layoutWeight(1);
+                        Text.textAlign(TextAlign.Center);
+                    }, Text);
+                    Text.pop();
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Text.create("发布");
+                        Text.debugLine("entry/src/main/ets/pages/EmoPage.ets(288:13)", "entry");
+                        Text.fontSize(15);
+                        Text.fontColor('#4682B4');
+                        Text.fontWeight(FontWeight.Medium);
+                        Text.onClick(() => {
+                            this.publishNewSchedule();
+                        });
+                    }, Text);
+                    Text.pop();
+                    // 弹窗头部
+                    Row.pop();
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        // 发布表单
+                        Scroll.create();
+                        Scroll.debugLine("entry/src/main/ets/pages/EmoPage.ets(303:11)", "entry");
+                        // 发布表单
+                        Scroll.width('100%');
+                        // 发布表单
+                        Scroll.height(450);
+                        // 发布表单
+                        Scroll.backgroundColor('#fff');
+                    }, Scroll);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Column.create({ space: 16 });
+                        Column.debugLine("entry/src/main/ets/pages/EmoPage.ets(304:13)", "entry");
+                        Column.width('100%');
+                        Column.padding(16);
+                    }, Column);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        // 心情输入
+                        TextInput.create({ text: this.newMood, placeholder: "输入你的心情..." });
+                        TextInput.debugLine("entry/src/main/ets/pages/EmoPage.ets(306:15)", "entry");
+                        // 心情输入
+                        TextInput.fontSize(16);
+                        // 心情输入
+                        TextInput.width('100%');
+                        // 心情输入
+                        TextInput.padding(12);
+                        // 心情输入
+                        TextInput.backgroundColor('#F5F5F5');
+                        // 心情输入
+                        TextInput.borderRadius(12);
+                        // 心情输入
+                        TextInput.onChange((v: string) => {
+                            this.newMood = v;
+                        });
+                    }, TextInput);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        // 日记内容
+                        TextInput.create({ text: this.newContent, placeholder: "记录今天的故事..." });
+                        TextInput.debugLine("entry/src/main/ets/pages/EmoPage.ets(317:15)", "entry");
+                        // 日记内容
+                        TextInput.fontSize(16);
+                        // 日记内容
+                        TextInput.width('100%');
+                        // 日记内容
+                        TextInput.height(80);
+                        // 日记内容
+                        TextInput.padding(12);
+                        // 日记内容
+                        TextInput.backgroundColor('#F5F5F5');
+                        // 日记内容
+                        TextInput.borderRadius(12);
+                        // 日记内容
+                        TextInput.maxLines(4);
+                        // 日记内容
+                        TextInput.onChange((v: string) => {
+                            this.newContent = v;
+                        });
+                    }, TextInput);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        // 三件好事
+                        Text.create("☑播好三样美好:");
+                        Text.debugLine("entry/src/main/ets/pages/EmoPage.ets(330:15)", "entry");
+                        // 三件好事
+                        Text.fontSize(14);
+                        // 三件好事
+                        Text.fontColor('#555');
+                        // 三件好事
+                        Text.fontWeight(FontWeight.Medium);
+                        // 三件好事
+                        Text.width('100%');
+                    }, Text);
+                    // 三件好事
+                    Text.pop();
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        TextInput.create({ text: this.newGoodThing1, placeholder: "第一件好事..." });
+                        TextInput.debugLine("entry/src/main/ets/pages/EmoPage.ets(336:15)", "entry");
+                        TextInput.fontSize(14);
+                        TextInput.width('100%');
+                        TextInput.padding(10);
+                        TextInput.backgroundColor('#F5F5F5');
+                        TextInput.borderRadius(10);
+                        TextInput.onChange((v: string) => {
+                            this.newGoodThing1 = v;
+                        });
+                    }, TextInput);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        TextInput.create({ text: this.newGoodThing2, placeholder: "第二件好事..." });
+                        TextInput.debugLine("entry/src/main/ets/pages/EmoPage.ets(346:15)", "entry");
+                        TextInput.fontSize(14);
+                        TextInput.width('100%');
+                        TextInput.padding(10);
+                        TextInput.backgroundColor('#F5F5F5');
+                        TextInput.borderRadius(10);
+                        TextInput.onChange((v: string) => {
+                            this.newGoodThing2 = v;
+                        });
+                    }, TextInput);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        TextInput.create({ text: this.newGoodThing3, placeholder: "第三件好事..." });
+                        TextInput.debugLine("entry/src/main/ets/pages/EmoPage.ets(356:15)", "entry");
+                        TextInput.fontSize(14);
+                        TextInput.width('100%');
+                        TextInput.padding(10);
+                        TextInput.backgroundColor('#F5F5F5');
+                        TextInput.borderRadius(10);
+                        TextInput.onChange((v: string) => {
+                            this.newGoodThing3 = v;
+                        });
+                    }, TextInput);
+                    Column.pop();
+                    // 发布表单
+                    Scroll.pop();
+                    Column.pop();
+                });
+            }
+            else {
+                this.ifElseBranchUpdateFunction(1, () => {
+                });
+            }
+        }, If);
+        If.pop();
+        Column.pop();
+    }
+    rerender() {
+        this.updateDirtyElements();
+    }
+    static getEntryName(): string {
+        return "EmoPage";
+    }
+}
+registerNamedRoute(() => new EmoPage(undefined, {}), "", { bundleName: "com.example.educationapplication", moduleName: "entry", pagePath: "pages/EmoPage", pageFullPath: "entry/src/main/ets/pages/EmoPage", integratedHsp: "false", moduleType: "followWithHap" });
